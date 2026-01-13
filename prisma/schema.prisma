@@ -5,7 +5,6 @@ generator client {
 datasource db {
   provider  = "mysql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -252,7 +251,7 @@ model Document {
 model Poll {
   id        String   @id @default(cuid())
   question  String
-  options   String[]
+  options   String   @db.Text
   userId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
