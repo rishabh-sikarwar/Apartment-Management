@@ -1,29 +1,21 @@
 // app/api/users/me/route.js
-
 import { NextResponse } from "next/server";
-import { db } from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server"; // We still need auth for the userId
+import { checkUserFromRequest } from "@/lib/checkUser"; // ✅ Reuse your working helper
 
-export async function GET() {
+export async function GET(req) {
   try {
-    const { userId } =await auth();
-    if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
+    // This helper checks Auth AND auto-creates the user in MySQL if missing
+    // It does exactly what we want!
+    const user = await checkUserFromRequest(req);
+
+    if (!user) {
+      return new NextResponse("User not found", { status: 404 });
     }
 
-    const dbUser = await db.user.findUnique({
-      where: { clerkUserId: userId },
-      include: {
-        society: true,
-      },
-    });
-
-    if (!dbUser) {
-      return new NextResponse("User not found in database", { status: 404 });
-    }
-
-    return NextResponse.json(dbUser);
+    // Success! Return the user
+    return NextResponse.json(user);
   } catch (error) {
+    console.error("GET /me Error:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
