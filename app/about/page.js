@@ -7,7 +7,7 @@ export default function AboutPage() {
 
       <p className="text-lg text-gray-700 leading-relaxed mb-4">
         Welcome to{" "}
-        <span className="font-semibold text-blue-600">AppSociety</span> — your
+        <span className="font-semibold text-blue-600">E-partment</span> — your
         all-in-one digital platform designed for smart and seamless society
         management. Our mission is to simplify the everyday complexities of
         managing residential communities with intelligent tools and
@@ -22,7 +22,7 @@ export default function AboutPage() {
       </p>
 
       <p className="text-lg text-gray-700 leading-relaxed mb-4">
-        With <span className="font-semibold text-blue-600">AppSociety</span>,
+        With <span className="font-semibold text-blue-600">E-partment</span>,
         you can reduce the burden of manual tasks, foster community engagement,
         and ensure the financial health of your society. Experience the future
         of society management, where convenience meets connectivity.

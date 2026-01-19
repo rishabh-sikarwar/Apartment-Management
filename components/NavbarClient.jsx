@@ -11,7 +11,7 @@ import { Home, Info, Phone, HelpCircle, Menu, X } from "lucide-react";
 const navItems = [
   { name: "Home", path: "/", icon: <Home className="w-5 h-5" /> },
   { name: "About", path: "/about", icon: <Info className="w-5 h-5" /> },
-  { name: "Contact", path: "/contact", icon: <Phone className="w-5 h-5" /> },
+  { name: "Contact Us", path: "/contact-us", icon: <Phone className="w-5 h-5" /> },
   { name: "FAQ's", path: "/faq", icon: <HelpCircle className="w-5 h-5" /> },
   {
     name: "Documents",
