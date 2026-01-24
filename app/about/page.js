@@ -29,8 +29,8 @@ export default function AboutPage() {
       </p>
 
       <p className="text-lg text-gray-700 leading-relaxed mb-4">
-        Whether you're a resident, committee member, or society manager, our
-        platform is tailored to meet your needs. Secure logins, intuitive
+        Whether you&apos;re a resident, committee member, or society manager,
+        our platform is tailored to meet your needs. Secure logins, intuitive
         dashboards, real-time updates, and feedback systems are just a few of
         the features we provide to make everyday operations smoother.
       </p>

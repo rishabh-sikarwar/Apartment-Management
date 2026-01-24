@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { FaFacebookF, FaLinkedinIn } from "react-icons/fa";
 
 export default function Footer() {
@@ -43,9 +44,9 @@ export default function Footer() {
             <h4 className="font-bold mb-3">Company</h4>
             <ul className="space-y-2">
               <li>
-                <a href="/" className="hover:underline">
+                <Link href="/" className="hover:underline">
                   Home
-                </a>
+                </Link>
               </li>
               <li>
                 <a href="/about" className="hover:underline">

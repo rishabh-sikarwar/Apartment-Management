@@ -1,9 +1,10 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 
-export default function VisitorCheckinStatusPage() {
+// 1. We move the logic into a separate "Content" component
+function CheckinContent() {
   const params = useSearchParams();
   const token = params.get("token");
   const [message, setMessage] = useState("Processing...");
@@ -30,7 +31,7 @@ export default function VisitorCheckinStatusPage() {
           const time = new Date(
             status === "CHECKED_OUT"
               ? data.visitor.checkOutTime
-              : data.visitor.checkInTime
+              : data.visitor.checkInTime,
           ).toLocaleString();
 
           setMessage(`${data.message} for ${name} at ${time}`);
@@ -51,5 +52,14 @@ export default function VisitorCheckinStatusPage() {
       <h1 className="text-2xl font-bold mb-4">Visitor Status Update</h1>
       <p className="text-lg">{message}</p>
     </div>
+  );
+}
+
+// 2. The Main Page just renders the content inside Suspense
+export default function VisitorCheckinStatusPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
+      <CheckinContent />
+    </Suspense>
   );
 }

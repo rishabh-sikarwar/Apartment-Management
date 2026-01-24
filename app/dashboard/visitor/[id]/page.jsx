@@ -1,4 +1,4 @@
-import QRCodeDisplay from "@/components/QRCodeDisplay";
+import QRCodeDisplay from "@/components/QrCodeDisplay";
 import { db } from "@/lib/prisma";
 
 export default async function VisitorPage({ params }) {

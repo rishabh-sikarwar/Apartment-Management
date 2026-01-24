@@ -1,4 +1,4 @@
-import { parseDatabaseArray } from "@/utils/dbHelpers";
+//import { parseDatabaseArray } from "@/utils/dbHelper";
 
 export default function PollsPage() {
   return (

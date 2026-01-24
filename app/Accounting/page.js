@@ -9,8 +9,6 @@ import React, { useState, useEffect, useRef, useCallback, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import RoleGuard from '@/components/RoleGuard';
-import domtoimage from "dom-to-image-more";
-import { jsPDF } from "jspdf";
 
 
 
@@ -1048,9 +1046,15 @@ useEffect(() => {
   if (!userId) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <MessageModal message={message} type={messageType} onClose={clearMessage} />
+        <MessageModal
+          message={message}
+          type={messageType}
+          onClose={clearMessage}
+        />
         <div className="bg-white rounded-2xl shadow-xl p-10 text-center max-w-lg w-full border border-blue-200">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">Access Restricted</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-4">
+            Access Restricted
+          </h1>
           <p className="text-gray-600 text-lg mb-6">
             Please log in to view and manage society accounting.
           </p>
@@ -1061,8 +1065,11 @@ useEffect(() => {
             Log In
           </Link>
           <p className="mt-4 text-sm text-gray-500">
-            Don't have an account?{" "}
-            <Link href="/signup" className="text-blue-600 underline hover:text-blue-800">
+            Don&apos;t have an account?{" "}
+            <Link
+              href="/signup"
+              className="text-blue-600 underline hover:text-blue-800"
+            >
               Sign Up
             </Link>
           </p>
@@ -1184,7 +1191,7 @@ useEffect(() => {
             )}
           </div>
           <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 space-y-5 flex flex-col justify-center">
-            <h3 className="text-xl font-bold text-gray-800 mb-2">This Month's Summary</h3>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">This Month&apos;s Summary</h3>
             <div className="flex justify-between items-center pb-2 border-b border-gray-200">
               <div className="text-gray-600 font-medium">Total Income</div>
               <div className="font-bold text-green-600 text-lg">₹ {summary.totalIncome.toLocaleString('en-IN')}</div>
@@ -1331,7 +1338,9 @@ function ReceiptTable({ societyInfo, userRole }) {
   // Append off-screen to DOM
   document.body.appendChild(receiptNode);
 
-  try {
+    try {
+    const domtoimage = (await import("dom-to-image-more")).default;
+    const { jsPDF } = await import("jspdf");
     const blob = await domtoimage.toPng(receiptNode);
     const pdf = new jsPDF("p", "mm", "a4");
     const imgProps = pdf.getImageProperties(blob);
