@@ -9,19 +9,27 @@ datasource db {
 
 model User {
   id               String             @id @default(cuid())
-  clerkUserId      String             @unique
+  // Removed clerkUserId - we now rely on 'id' as the main identifier
   firstName        String?
   lastName         String?
-  email            String             @unique
-  phoneNumber      String?
-  role             Role?              @default(VISITOR)
+  email            String?            @unique // Made optional if user signs up via Phone
+  phoneNumber      String?            @unique // Made optional if user signs up via Email
+  password         String?            // Hashed password (optional if we allow OTP-only login)
+  role             Role               @default(VISITOR)
   profilePicture   String?
   isActive         Boolean            @default(true)
+  isVerified       Boolean            @default(false) // For OTP verification status
+  
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+  
   societyId        String?
   buildingId       String?
-  name             String?
+  name             String?            // Can be combined firstName + lastName
+
+  // Relations
+  otpSessions      Otp[]              // Relation to OTP table
+  
   bookings         Booking[]
   complaints       Complaint[]
   documents        Document[]
@@ -44,6 +52,23 @@ model User {
   pendingAdmins    PendingAdmin[]
 
   @@map("users")
+}
+
+// ✅ NEW MODEL: Handles OTPs for Login/Signup
+model Otp {
+  id        String   @id @default(cuid())
+  code      String   // The 6 digit code
+  expiresAt DateTime
+  
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  
+  sentTo    String   // The email or phone number it was sent to
+  type      OtpType  // EMAIL or PHONE
+  
+  createdAt DateTime @default(now())
+
+  @@map("otps")
 }
 
 model Society {
@@ -535,6 +560,12 @@ model EntryLog {
   /// ↓ indexes for fast daily lookups
   @@index([societyId, inTime])
   @@index([outTime])
+}
+
+
+enum OtpType {
+  EMAIL
+  PHONE
 }
 
 /// New enum to classify the person being logged
