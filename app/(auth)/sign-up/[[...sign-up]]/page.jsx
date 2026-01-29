@@ -142,7 +142,7 @@ const SignUpPage = () => {
   return (
     <div className="bg-white/80 backdrop-blur-md border border-white/20 rounded-3xl shadow-2xl p-8 transition-all duration-300 hover:shadow-purple-500/10">
       <div className="text-center mb-6">
-        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-purple-600 to-pink-600">
           Create Account
         </h1>
         <p className="text-gray-500 text-sm mt-2">
@@ -374,7 +374,7 @@ const SignUpPage = () => {
         <button
           type="submit"
           disabled={loading || Object.keys(errors).length > 0}
-          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+          className="w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
         >
           {loading ? (
             <>

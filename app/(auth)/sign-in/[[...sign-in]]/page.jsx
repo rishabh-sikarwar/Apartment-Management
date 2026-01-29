@@ -40,7 +40,7 @@ const SignInPage = () => {
   return (
     <div className="bg-white/80 backdrop-blur-md border border-white/20 rounded-3xl shadow-2xl p-8 transition-all duration-300 hover:shadow-indigo-500/10">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
+        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-indigo-600 to-purple-600">
           Welcome Back
         </h1>
         <p className="text-gray-500 text-sm mt-2">
@@ -57,7 +57,7 @@ const SignInPage = () => {
               type="text"
               required
               placeholder="Email or Phone Number"
-              className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+              className=" w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
               value={formData.identifier}
               onChange={(e) =>
                 setFormData({ ...formData, identifier: e.target.value })
@@ -95,7 +95,7 @@ const SignInPage = () => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {loading ? (
             <>
