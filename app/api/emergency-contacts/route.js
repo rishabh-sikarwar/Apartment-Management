@@ -1,168 +1,100 @@
-
-
-// import { db } from "@/lib/prisma";
-// import { auth } from "@clerk/nextjs/server";
-// import { NextResponse } from "next/server";
-
-
-// export async function GET(req) {
-//   try {
-//     // Enhanced auth check with debugging
-//     const { userId } = await auth();
-   
-
-//     if (!userId) {
-//       console.warn("No user ID found in auth - headers:", req.headers);
-//       return NextResponse.json(
-//         {
-//           error: "Unauthorized",
-//           message: "Please sign in to access this resource",
-//         },
-//         { status: 401 }
-//       );
-//       }
-      
-//       const user = await db.user.findUnique({
-//           where: {clerkUserId: userId},
-//       })
-
-//     const contacts = await db.emergencyContact.findMany({
-//       where: { userId: user.id },
-//       orderBy: { createdAt: "desc" },
-//     });
-
-//     return NextResponse.json(contacts);
-//   } catch (error) {
-//     console.error("GET error:", error);
-//     return NextResponse.json(
-//       { error: "Failed to fetch contacts" },
-//       { status: 500 }
-//     );
-//   }
-// }
-
-// export async function POST(req) {
-//   try {
-//     // Enhanced auth check with debugging
-//     const { userId } = await auth();
-   
-
-//     if (!userId) {
-//       console.warn("No user ID found in auth - headers:", req.headers);
-//       return NextResponse.json(
-//         {
-//           error: "Unauthorized",
-//           message: "Please sign in to access this resource",
-//         },
-//         { status: 401 }
-//       );
-//       }
-      
-//       const user = await db.user.findUnique({
-//           where: {clerkUserId: userId},
-//       })
-
-//    const { name, phoneNumber, designation, type } = await req.json();
-
-//     if (!name || !phoneNumber || !designation) {
-//       return NextResponse.json(
-//         { error: "Missing required fields" },
-//         { status: 400 }
-//       );
-//       }
-      
-//       const updateContact = await db.emergencyContact.create({
-//           data: {
-//               name,
-//               phoneNumber,
-//               designation,
-//               email: user.email,
-//               userId: user.id,
-//               id: user.id + "-" + Date.now().toString(),
-//               type,
-//           }
-//       });
-
-//     return NextResponse.json(updateContact);
-//   } catch (error) {
-//     console.error("GET error:", error);
-//     return NextResponse.json(
-//       { error: "Failed to fetch contacts" },
-//       { status: 500 }
-//     );
-//   }
-// }
 import { db } from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { checkUser } from "@/lib/checkUser";
 import { NextResponse } from "next/server";
 
+// GET: Fetch Emergency Contacts for the User's Society
 export async function GET(req) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    // 1. Authenticate User
+    const user = await checkUser();
+
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    // 2. Check if user belongs to a society
+    if (!user.societyId) {
+      // If user isn't in a society yet, return empty list
+      return NextResponse.json({
+        contacts: [],
+        user: { role: user.role, societyId: null },
+      });
     }
 
+    // 3. Fetch contacts for that specific society
     const contacts = await db.emergencyContact.findMany({
       where: { societyId: user.societyId },
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ contacts, user: { role: user.role, societyId: user.societyId } });
+    return NextResponse.json({
+      contacts,
+      user: { role: user.role, societyId: user.societyId },
+    });
   } catch (error) {
-    console.error("GET error:", error);
-    return NextResponse.json({ error: "Failed to fetch contacts" }, { status: 500 });
+    console.error("GET Emergency Contacts Error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch contacts" },
+      { status: 500 },
+    );
   }
 }
 
+// POST: Add New Emergency Contact (Admins Only)
 export async function POST(req) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    // 1. Authenticate User
+    const user = await checkUser();
+
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
+    // 2. Check Permissions (Only Admins/Secretaries can add contacts)
+    const allowedRoles = ["SUPER_ADMIN", "SOCIETY_ADMIN", "SOCIETY_SECRETARY"];
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 403 });
+    if (!allowedRoles.includes(user.role)) {
+      return NextResponse.json(
+        { error: "Forbidden: Insufficient permissions" },
+        { status: 403 },
+      );
     }
 
+    // 3. Validate Inputs
     const { name, phoneNumber, email, designation } = await req.json();
 
     if (!name || !phoneNumber || !designation || !email) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
     }
 
-    if(user.role !== "SUPER_ADMIN" && user.role !== "SOCIETY_ADMIN" && user.role !== "SOCIETY_SECRETARY") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!user.societyId) {
+      return NextResponse.json(
+        { error: "You must be part of a society to add contacts" },
+        { status: 400 },
+      );
     }
 
+    // 4. Create Contact
     const newContact = await db.emergencyContact.create({
       data: {
         name,
         phoneNumber,
         designation,
         email,
-        userId: user.id,
-        societyId: user.societyId,
-        id: user.id + "-" + Date.now().toString(),
+        userId: user.id, // Linked to the admin who created it
+        societyId: user.societyId, // Linked to the society
       },
     });
 
     return NextResponse.json(newContact);
   } catch (error) {
-    console.error("POST error:", error);
-    return NextResponse.json({ error: "Failed to create contact" }, { status: 500 });
+    console.error("POST Emergency Contact Error:", error);
+    return NextResponse.json(
+      { error: "Failed to create contact" },
+      { status: 500 },
+    );
   }
 }
