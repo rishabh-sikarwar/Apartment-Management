@@ -1,28 +1,31 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
+import { checkUser } from "@/lib/checkUser";
+
+const db = new PrismaClient();
 
 export async function POST(req) {
   try {
-    const { userId } = await auth();
-    if (!userId) return new NextResponse("Unauth", { status: 401 });
-
-    const me = await db.user.findUnique({ where: { clerkUserId: userId } });
-    if (!me) return new NextResponse("User not found", { status: 404 });
+    // 1. Get Current User
+    const me = await checkUser();
+    if (!me) return new NextResponse("Unauthorized", { status: 401 });
 
     const { societyId, role, phoneNumber, buildingId, flatId } =
       await req.json();
 
-    // one open request only
+    // 2. Check for existing pending request
     const exist = await db.pendingAccess.findUnique({
       where: { userId: me.id },
     });
-    if (exist)
+
+    if (exist) {
       return NextResponse.json(
         { error: "Request already pending" },
-        { status: 400 }
+        { status: 400 },
       );
+    }
 
+    // 3. Create Request
     await db.pendingAccess.create({
       data: {
         userId: me.id,

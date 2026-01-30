@@ -11,89 +11,65 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  ArrowRight,
   Check,
-  X,
+  CheckCircle2, // New distinct icon for verified state
+  Building2,
+  Globe,
+  AlertCircle,
 } from "lucide-react";
+
+const countryCodes = [
+  { code: "+91", country: "India" },
+  { code: "+1", country: "USA" },
+  { code: "+44", country: "UK" },
+  { code: "+61", country: "Australia" },
+  { code: "+971", country: "UAE" },
+];
 
 const SignUpPage = () => {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
 
-  // Visibility Toggles
+  // --- Loading States ---
+  const [loading, setLoading] = useState(false); // For Register
+  const [otpLoading, setOtpLoading] = useState(false); // For Sending OTP
+  const [verifyingOtp, setVerifyingOtp] = useState(false); // For Verifying OTP
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Form State
+  const [otpMethod, setOtpMethod] = useState("email");
+  const [countryCode, setCountryCode] = useState("+91");
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
+  const [shakeField, setShakeField] = useState(null);
+
+  const [passwordStrength, setPasswordStrength] = useState(0);
+  const [passwordFeedback, setPasswordFeedback] = useState("");
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     phone: "",
+    otp: "",
     password: "",
     confirmPassword: "",
   });
 
-  // Password Strength State
-  const [passwordStrength, setPasswordStrength] = useState(0); // 0 to 4
-  const [passwordFeedback, setPasswordFeedback] = useState("");
-
-  // Validation Errors
   const [errors, setErrors] = useState({});
 
-  const [otpMethod, setOtpMethod] = useState("email"); // Default to email
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const phoneRegex = /^\d{10}$/;
 
-  // 1. Password Logic: Calculate Strength
   const checkStrength = (pass) => {
     let score = 0;
     if (!pass) return 0;
-
-    if (pass.length >= 8) score++; // Length Check
-    if (/[a-z]/.test(pass) && /[A-Z]/.test(pass)) score++; // Case Check
-    if (/\d/.test(pass)) score++; // Number Check
-    if (/[^A-Za-z0-9]/.test(pass)) score++; // Special Char Check
-
+    if (pass.length >= 8) score++;
+    if (/[a-z]/.test(pass) && /[A-Z]/.test(pass)) score++;
+    if (/\d/.test(pass)) score++;
+    if (/[^A-Za-z0-9]/.test(pass)) score++;
     return score;
   };
 
-  // 2. Real-time Validation Effect
-  useEffect(() => {
-    const newErrors = {};
-    const strength = checkStrength(formData.password);
-    setPasswordStrength(strength);
-
-    // Set Feedback Text
-    const feedbackMessages = ["Very Weak", "Weak", "Fair", "Good", "Strong"];
-    setPasswordFeedback(feedbackMessages[strength] || "Very Weak");
-
-    // Email Regex
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (formData.email && !emailRegex.test(formData.email)) {
-      newErrors.email = "Invalid email address";
-    }
-
-    // Phone (10 digits)
-    const phoneRegex = /^[0-9]{10}$/;
-    if (formData.phone && !phoneRegex.test(formData.phone)) {
-      newErrors.phone = "Phone number must be 10 digits";
-    }
-
-    // Password Match
-    if (
-      formData.confirmPassword &&
-      formData.password !== formData.confirmPassword
-    ) {
-      newErrors.confirmPassword = "Passwords do not match";
-    }
-
-    // Password Minimum Requirement (Must be at least 'Fair' i.e., score >= 2)
-    if (formData.password && strength < 3) {
-      newErrors.password = "Password is too weak";
-    }
-
-    setErrors(newErrors);
-  }, [formData]);
-
-  // 3. Helper to get color based on strength
   const getStrengthColor = () => {
     if (passwordStrength === 0) return "bg-gray-200";
     if (passwordStrength === 1) return "bg-red-500";
@@ -102,302 +78,527 @@ const SignUpPage = () => {
     return "bg-green-500";
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    const strength = checkStrength(formData.password);
+    setPasswordStrength(strength);
+    const feedbackMessages = ["Very Weak", "Weak", "Fair", "Good", "Strong"];
+    setPasswordFeedback(feedbackMessages[strength] || "Very Weak");
 
-    // Final block if errors exist
-    if (Object.keys(errors).length > 0 || !formData.fullName) {
-      toast.error("Please fix the form errors.");
-      return;
+    if (
+      formData.confirmPassword &&
+      formData.password !== formData.confirmPassword
+    ) {
+      setErrors((prev) => ({
+        ...prev,
+        confirmPassword: "Passwords do not match",
+      }));
+    } else {
+      setErrors((prev) => {
+        const newErr = { ...prev };
+        delete newErr.confirmPassword;
+        return newErr;
+      });
+    }
+  }, [formData.password, formData.confirmPassword]);
+
+  const triggerShake = (fieldName) => {
+    setShakeField(fieldName);
+    setTimeout(() => setShakeField(null), 500);
+  };
+
+  const handleSendOtp = async () => {
+    setErrors({});
+
+    if (otpMethod === "email") {
+      if (!formData.email.trim()) {
+        triggerShake("email");
+        toast.error("Email is required");
+        return;
+      }
+      if (!emailRegex.test(formData.email)) {
+        triggerShake("email");
+        setErrors({ email: "Invalid format" });
+        return;
+      }
+    } else {
+      if (!formData.phone.trim()) {
+        triggerShake("phone");
+        toast.error("Phone required");
+        return;
+      }
+      if (!phoneRegex.test(formData.phone)) {
+        triggerShake("phone");
+        setErrors({ phone: "Must be 10 digits" });
+        return;
+      }
     }
 
-    setLoading(true);
-
+    setOtpLoading(true); // START LOADING
     try {
-      const res = await fetch("/api/auth/signup", {
+      const identifier =
+        otpMethod === "email" ? formData.email : formData.phone;
+      const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName: formData.fullName,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
-          otpMethod: otpMethod,
+          identifier,
+          type: otpMethod,
+          countryCode: otpMethod === "phone" ? countryCode : null,
         }),
       });
 
       const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 409) triggerShake(otpMethod);
+        throw new Error(data.error);
+      }
 
-      if (!res.ok) throw new Error(data.error || "Signup failed");
-
-      toast.success("Account created! Please login.");
-      router.push("/sign-in");
+      setIsOtpSent(true);
+      toast.success(data.message);
     } catch (error) {
       toast.error(error.message);
     } finally {
-      setLoading(false);
+      setOtpLoading(false); // STOP LOADING
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!formData.otp || formData.otp.length < 6) {
+      triggerShake("otp");
+      toast.error("Enter 6-digit OTP");
+      return;
+    }
+
+    setVerifyingOtp(true); // START LOADING
+    try {
+      const identifier =
+        otpMethod === "email" ? formData.email : formData.phone;
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifier,
+          otp: formData.otp,
+          type: otpMethod,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        triggerShake("otp");
+        throw new Error(data.error);
+      }
+
+      setIsOtpVerified(true);
+      toast.success("Verified Successfully!");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setVerifyingOtp(false); // STOP LOADING
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.fullName.trim()) return toast.error("Full Name is required");
+    if (!isOtpVerified) return toast.error("Please verify OTP first");
+    if (formData.password !== formData.confirmPassword) {
+      triggerShake("confirmPassword");
+      return toast.error("Passwords do not match");
+    }
+
+    setLoading(true); // START LOADING
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: formData.fullName,
+          email: otpMethod === "email" ? formData.email : "",
+          phone: otpMethod === "phone" ? formData.phone : "",
+          password: formData.password,
+          countryCode: countryCode,
+          isVerified: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      toast.success("Account Created! Redirecting...");
+      router.push("/dashboard");
+
+      // OPTION B: If backend doesn't set cookie, force login page:
+      // router.push("/sign-in");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false); // STOP LOADING
     }
   };
 
   return (
-    <div className="bg-white/80 backdrop-blur-md border border-white/20 rounded-3xl shadow-2xl p-8 transition-all duration-300 hover:shadow-purple-500/10">
-      <div className="text-center mb-6">
-        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-purple-600 to-pink-600">
-          Create Account
-        </h1>
-        <p className="text-gray-500 text-sm mt-2">
-          Secure access for society members
-        </p>
+    <div className="flex w-full max-w-6xl bg-white rounded-2xl shadow-2xl overflow-hidden min-h-[700px] border border-gray-100">
+      {/* Left Visuals (Unchanged) */}
+      <div className="hidden md:flex md:w-5/12 bg-blue-600 flex-col justify-center items-center p-12 text-white relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-indigo-800 opacity-90"></div>
+        <div className="relative z-10 text-center">
+          <Building2 className="h-20 w-20 mb-6 mx-auto opacity-90" />
+          <h2 className="text-4xl font-bold mb-4">E-Partment</h2>
+          <p className="text-blue-100 text-xl">Smart Society Management.</p>
+        </div>
+        <div className="absolute top-10 left-10 w-24 h-24 bg-white opacity-10 rounded-full blur-2xl"></div>
+        <div className="absolute bottom-10 right-10 w-32 h-32 bg-white opacity-10 rounded-full blur-3xl"></div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Full Name */}
-        <div className="relative group">
-          <User className="absolute left-3 top-3 h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
-          <input
-            type="text"
-            placeholder="Full Name"
-            className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
-            value={formData.fullName}
-            onChange={(e) =>
-              setFormData({ ...formData, fullName: e.target.value })
-            }
-            required
-          />
-        </div>
-
-        {/* Contact Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="relative group">
-            <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
-            <input
-              type="email"
-              placeholder="Email"
-              className={`w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border ${errors.email ? "border-red-500" : "border-gray-200 focus:border-purple-500"} focus:bg-white outline-none transition-all`}
-              value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
-            />
-          </div>
-
-          <div className="relative group">
-            <Phone className="absolute left-3 top-3 h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
-            <input
-              type="tel"
-              placeholder="Phone (10 digits)"
-              maxLength={10}
-              className={`w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border ${errors.phone ? "border-red-500" : "border-gray-200 focus:border-purple-500"} focus:bg-white outline-none transition-all`}
-              value={formData.phone}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  phone: e.target.value.replace(/\D/g, ""),
-                })
-              }
-            />
-          </div>
-        </div>
-        {(errors.email || errors.phone) && (
-          <p className="text-xs text-red-500 px-1">
-            {errors.email || errors.phone}
+      <div className="w-full md:w-7/12 p-8 md:p-12 flex flex-col justify-center bg-white overflow-y-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Create Account</h1>
+          <p className="text-gray-500 text-base mt-2">
+            Join your community today.
           </p>
-        )}
-
-        {/* Password Field */}
-        <div className="relative group">
-          <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Password"
-            className="w-full pl-10 pr-12 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
-            value={formData.password}
-            onChange={(e) =>
-              setFormData({ ...formData, password: e.target.value })
-            }
-            required
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 focus:outline-none"
-          >
-            {showPassword ? (
-              <EyeOff className="h-5 w-5" />
-            ) : (
-              <Eye className="h-5 w-5" />
-            )}
-          </button>
         </div>
 
-        {/* Password Strength Indicator */}
-        {formData.password && (
-          <div className="space-y-2 px-1">
-            <div className="flex justify-between text-xs font-semibold text-gray-500">
-              <span>Strength:</span>
-              <span
-                className={`${passwordStrength > 2 ? "text-green-600" : "text-orange-500"}`}
-              >
-                {passwordFeedback}
-              </span>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Full Name */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 uppercase mb-2">
+              Full Name
+            </label>
+            <div className="relative group">
+              <User className="absolute left-4 top-4 h-5 w-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+              <input
+                type="text"
+                placeholder="John Doe"
+                className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-all text-base font-medium text-gray-900 placeholder:text-gray-400"
+                value={formData.fullName}
+                onChange={(e) =>
+                  setFormData({ ...formData, fullName: e.target.value })
+                }
+              />
             </div>
-            {/* The Bar */}
-            <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+          </div>
+
+          {/* Verification Section */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 uppercase mb-2">
+              Verify via
+            </label>
+
+            {/* Toggle Buttons (Disabled if verified) */}
+            <div className="flex gap-4 mb-4">
+              <button
+                type="button"
+                disabled={isOtpVerified || isOtpSent}
+                onClick={() => {
+                  setOtpMethod("email");
+                  setIsOtpSent(false);
+                  setErrors({});
+                }}
+                className={`flex-1 py-3 rounded-lg text-base font-medium border flex items-center justify-center gap-2 transition-all duration-200 ${
+                  otpMethod === "email"
+                    ? "bg-blue-50 border-blue-600 text-blue-700 ring-1 ring-blue-200"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                } ${isOtpVerified ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              >
+                <Mail className="h-5 w-5" /> Email
+              </button>
+              <button
+                type="button"
+                disabled={isOtpVerified || isOtpSent}
+                onClick={() => {
+                  setOtpMethod("phone");
+                  setIsOtpSent(false);
+                  setErrors({});
+                }}
+                className={`flex-1 py-3 rounded-lg text-base font-medium border flex items-center justify-center gap-2 transition-all duration-200 ${
+                  otpMethod === "phone"
+                    ? "bg-blue-50 border-blue-600 text-blue-700 ring-1 ring-blue-200"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                } ${isOtpVerified ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              >
+                <Phone className="h-5 w-5" /> Mobile
+              </button>
+            </div>
+
+            {/* Input Field with Inline Action */}
+            <div
+              className={`relative group transition-transform ${shakeField === otpMethod ? "animate-pulse border-red-500" : ""}`}
+            >
+              {otpMethod === "email" ? (
+                <>
+                  <Mail
+                    className={`absolute left-4 top-4 h-5 w-5 transition-colors ${
+                      isOtpVerified
+                        ? "text-green-600"
+                        : errors.email
+                          ? "text-red-500"
+                          : "text-gray-400 group-focus-within:text-blue-600"
+                    }`}
+                  />
+                  <input
+                    type="email"
+                    placeholder="name@company.com"
+                    className={`w-full pl-12 pr-28 py-3.5 rounded-xl border outline-none text-base font-medium transition-all ${
+                      isOtpVerified
+                        ? "bg-green-50 border-green-500 text-green-800 placeholder:text-green-600"
+                        : errors.email
+                          ? "border-red-500 bg-red-50 focus:ring-1 focus:ring-red-500"
+                          : "border-gray-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                    }`}
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    disabled={isOtpVerified || isOtpSent}
+                  />
+                </>
+              ) : (
+                <div className="flex">
+                  <div className="relative">
+                    <Globe className="absolute left-3 top-4 h-5 w-5 text-gray-500 z-10 pointer-events-none" />
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className={`h-full pl-10 pr-8 py-3.5 rounded-l-xl border border-r-0 outline-none text-base font-medium appearance-none ${
+                        isOtpVerified
+                          ? "bg-green-50 border-green-500 text-green-800"
+                          : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      }`}
+                      disabled={isOtpVerified || isOtpSent}
+                    >
+                      {countryCodes.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="relative w-full">
+                    <input
+                      type="tel"
+                      placeholder="98765 43210"
+                      maxLength={10}
+                      className={`w-full h-full pl-4 pr-28 rounded-r-xl border outline-none text-base font-medium transition-all ${
+                        isOtpVerified
+                          ? "bg-green-50 border-green-500 text-green-800 placeholder:text-green-600"
+                          : errors.phone
+                            ? "border-red-500 bg-red-50 focus:ring-1 focus:ring-red-500"
+                            : "border-gray-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      }`}
+                      value={formData.phone}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          phone: e.target.value.replace(/\D/g, ""),
+                        })
+                      }
+                      disabled={isOtpVerified || isOtpSent}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* ACTION BUTTON (Right Side of Input) */}
+              <div className="absolute right-2 top-2 bottom-2">
+                {isOtpVerified ? (
+                  // 1. VERIFIED STATE (Green Tick)
+                  <div className="h-full px-4 flex items-center justify-center bg-green-100 text-green-700 rounded-lg font-bold text-sm gap-2 animate-in zoom-in">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span>Verified</span>
+                  </div>
+                ) : (
+                  // 2. UNVERIFIED STATE (Send OTP Button)
+                  !isOtpSent && (
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={otpLoading}
+                      className="h-full px-4 bg-gray-900 hover:bg-black hover:scale-105 active:scale-95 text-white text-sm font-bold rounded-lg transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center shadow-md cursor-pointer min-w-[100px] justify-center"
+                    >
+                      {otpLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Send OTP"
+                      )}
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+
+            {/* OTP Input Section (Appears after Send, Disappears/Changes after Verify) */}
+            {isOtpSent && !isOtpVerified && (
               <div
-                className={`h-full transition-all duration-500 ease-out ${getStrengthColor()}`}
-                style={{ width: `${(passwordStrength / 4) * 100}%` }}
-              ></div>
+                className={`mt-4 animate-in fade-in slide-in-from-top-2 duration-300 bg-blue-50 p-4 rounded-xl border border-blue-100 ${shakeField === "otp" ? "animate-pulse ring-2 ring-red-300" : ""}`}
+              >
+                <label className="block text-sm font-bold text-blue-800 mb-2">
+                  Enter OTP sent to{" "}
+                  {otpMethod === "email"
+                    ? formData.email
+                    : countryCode + formData.phone}
+                </label>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="000000"
+                    maxLength={6}
+                    className="flex-1 px-4 py-3 rounded-lg border border-blue-200 focus:border-blue-600 outline-none text-center text-xl tracking-[0.5em] bg-white font-bold text-gray-900 disabled:opacity-50"
+                    value={formData.otp}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        otp: e.target.value.replace(/\D/g, ""),
+                      })
+                    }
+                    disabled={verifyingOtp} // Disable while verifying
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyOtp}
+                    disabled={verifyingOtp}
+                    className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-6 rounded-lg font-bold text-sm shadow-sm transition-all cursor-pointer disabled:opacity-70 disabled:transform-none min-w-[100px] flex items-center justify-center"
+                  >
+                    {verifyingOtp ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      "Verify"
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Password Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 uppercase mb-2">
+                Password
+              </label>
+              <div className="relative group">
+                <Lock className="absolute left-4 top-3.5 h-5 w-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  className="w-full pl-12 pr-10 py-3.5 rounded-xl border border-gray-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none text-base font-medium text-gray-900 placeholder:text-gray-400 transition-all"
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
-            {/* Mini Requirements Checklist */}
-            <div className="grid grid-cols-2 gap-1 text-[10px] text-gray-500 mt-1">
-              <span
-                className={`flex items-center gap-1 ${formData.password.length >= 8 ? "text-green-600" : ""}`}
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 uppercase mb-2">
+                Confirm
+              </label>
+              <div
+                className={`relative group ${shakeField === "confirmPassword" ? "animate-pulse" : ""}`}
               >
-                {formData.password.length >= 8 ? (
-                  <Check className="h-3 w-3" />
-                ) : (
-                  <span className="h-1 w-1 bg-gray-400 rounded-full" />
-                )}{" "}
-                8+ Chars
-              </span>
-              <span
-                className={`flex items-center gap-1 ${/[A-Z]/.test(formData.password) ? "text-green-600" : ""}`}
-              >
-                {/[A-Z]/.test(formData.password) ? (
-                  <Check className="h-3 w-3" />
-                ) : (
-                  <span className="h-1 w-1 bg-gray-400 rounded-full" />
-                )}{" "}
-                Uppercase
-              </span>
-              <span
-                className={`flex items-center gap-1 ${/\d/.test(formData.password) ? "text-green-600" : ""}`}
-              >
-                {/\d/.test(formData.password) ? (
-                  <Check className="h-3 w-3" />
-                ) : (
-                  <span className="h-1 w-1 bg-gray-400 rounded-full" />
-                )}{" "}
-                Number
-              </span>
-              <span
-                className={`flex items-center gap-1 ${/[^A-Za-z0-9]/.test(formData.password) ? "text-green-600" : ""}`}
-              >
-                {/[^A-Za-z0-9]/.test(formData.password) ? (
-                  <Check className="h-3 w-3" />
-                ) : (
-                  <span className="h-1 w-1 bg-gray-400 rounded-full" />
-                )}{" "}
-                Special Char
-              </span>
+                <Lock
+                  className={`absolute left-4 top-3.5 h-5 w-5 transition-colors ${errors.confirmPassword ? "text-red-500" : "text-gray-400 group-focus-within:text-blue-600"}`}
+                />
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  className={`w-full pl-12 pr-10 py-3.5 rounded-xl border outline-none text-base font-medium text-gray-900 placeholder:text-gray-400 transition-all ${
+                    errors.confirmPassword
+                      ? "border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50"
+                      : "border-gray-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                  }`}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      confirmPassword: e.target.value,
+                    })
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Confirm Password */}
-        <div className="relative group">
-          <Lock
-            className={`absolute left-3 top-3 h-5 w-5 ${errors.confirmPassword ? "text-red-400" : "text-gray-400"} group-focus-within:text-purple-500 transition-colors`}
-          />
-          <input
-            type={showConfirmPassword ? "text" : "password"}
-            placeholder="Confirm Password"
-            className={`w-full pl-10 pr-12 py-3 rounded-xl bg-gray-50 border ${errors.confirmPassword ? "border-red-500" : "border-gray-200"} focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all`}
-            value={formData.confirmPassword}
-            onChange={(e) =>
-              setFormData({ ...formData, confirmPassword: e.target.value })
-            }
-            required
-          />
+          <div className="min-h-[24px]">
+            {formData.password && (
+              <div className="space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden mt-2">
+                  <div
+                    className={`h-full transition-all duration-500 ${getStrengthColor()}`}
+                    style={{ width: `${(passwordStrength / 4) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between items-center text-xs font-bold uppercase mt-1">
+                  <span
+                    className={
+                      errors.confirmPassword
+                        ? "text-red-500"
+                        : "text-transparent"
+                    }
+                  >
+                    {errors.confirmPassword}
+                  </span>
+                  <span
+                    className={
+                      passwordStrength > 2
+                        ? "text-green-600"
+                        : "text-orange-500"
+                    }
+                  >
+                    Strength: {passwordFeedback}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
-            type="button"
-            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+            type="submit"
+            disabled={
+              !isOtpVerified ||
+              loading ||
+              formData.password !== formData.confirmPassword
+            }
+            className="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold py-4 rounded-xl shadow-lg transition-all disabled:bg-gray-300 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 mt-4 text-lg cursor-pointer"
           >
-            {showConfirmPassword ? (
-              <EyeOff className="h-5 w-5" />
+            {loading ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
-              <Eye className="h-5 w-5" />
+              "Create Account"
             )}
           </button>
-        </div>
-        {errors.confirmPassword && (
-          <p className="text-xs text-red-500 px-1">{errors.confirmPassword}</p>
-        )}
+        </form>
 
-        {/* OTP Method Selection */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">
-            Send OTP via:
-          </label>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              type="button"
-              onClick={() => setOtpMethod("email")}
-              className={`flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${
-                otpMethod === "email"
-                  ? "bg-purple-50 border-purple-500 text-purple-700 ring-1 ring-purple-500"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <Mail className="h-4 w-4" />
-              <span className="text-sm font-medium">Email</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOtpMethod("phone")}
-              className={`flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${
-                otpMethod === "phone"
-                  ? "bg-purple-50 border-purple-500 text-purple-700 ring-1 ring-purple-500"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <Phone className="h-4 w-4" />
-              <span className="text-sm font-medium">Phone</span>
-            </button>
-          </div>
-
-          {/* Validation Warning */}
-          {otpMethod === "email" && !formData.email && (
-            <p className="text-xs text-orange-500">
-              Please enter an email address first.
-            </p>
-          )}
-          {otpMethod === "phone" && !formData.phone && (
-            <p className="text-xs text-orange-500">
-              Please enter a phone number first.
-            </p>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading || Object.keys(errors).length > 0}
-          className="w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin" /> Creating...
-            </>
-          ) : (
-            <>
-              Sign Up <ArrowRight className="h-5 w-5" />
-            </>
-          )}
-        </button>
-      </form>
-
-      <div className="mt-6 text-center">
-        <p className="text-gray-600 text-sm">
-          Already a member?{" "}
+        <div className="mt-8 text-center text-sm text-gray-600">
+          Already have an account?{" "}
           <Link
             href="/sign-in"
-            className="text-purple-600 font-bold hover:underline transition-all"
+            className="text-blue-600 font-bold hover:underline cursor-pointer"
           >
-            Log in here
+            Log in
           </Link>
-        </p>
+        </div>
       </div>
     </div>
   );

@@ -1,78 +1,91 @@
-
 // app/api/users/route.js
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { checkUserFromRequest } from "@/lib/checkUser";
+import { PrismaClient } from "@prisma/client";
+import { checkUser } from "@/lib/checkUser";
+import { getSession } from "@/lib/auth";
+
+const db = new PrismaClient();
 
 // GET - Get current user details
 export async function GET(req) {
-  
   try {
-    const { userId } = await auth();
+    const user = await checkUser();
 
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
-
-    const user = await checkUserFromRequest(req);
-    if(!user) {
-      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
-    }
-    
 
     return NextResponse.json({ success: true, data: user });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
   }
 }
 
-// POST - Create or update a user profile
+// POST - Update Profile
 export async function POST(req) {
   try {
-    const { userId: clerkUserId } =  await auth();
-
-    if (!clerkUserId) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const body = await req.json();
-    const existingUser = await db.user.findUnique({ where: { clerkUserId } });
 
-    const user = existingUser
-      ? await db.user.update({ where: { clerkUserId }, data: body })
-      : await db.user.create({ data: { ...body, clerkUserId } });
+    // Remove fields that shouldn't be updated manually via this route
+    delete body.id;
+    delete body.password;
+    delete body.role; // Prevent users from promoting themselves to ADMIN
 
-    return NextResponse.json({ success: true, data: user });
+    const updatedUser = await db.user.update({
+      where: { id: session.userId },
+      data: body,
+    });
+
+    return NextResponse.json({ success: true, data: updatedUser });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
   }
 }
 
 // PATCH - Admin updates a user's role
 export async function PATCH(req) {
   try {
-    const { userId: clerkUserId } = await auth();
-
-    if (!clerkUserId) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    // 1. Check if requester is Admin
+    const adminUser = await checkUser();
+    if (
+      !adminUser ||
+      (adminUser.role !== "SUPER_ADMIN" && adminUser.role !== "SOCIETY_ADMIN")
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 },
+      );
     }
 
-    const adminUser = await db.user.findUnique({ where: { clerkUserId } });
-
-    if (!adminUser || adminUser.role !== "ADMIN") {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
-    }
-
-    const { targetClerkUserId, newRole } = await req.json();
+    const { targetUserId, newRole } = await req.json();
 
     const updatedUser = await db.user.update({
-      where: { clerkUserId: targetClerkUserId },
+      where: { id: targetUserId },
       data: { role: newRole },
     });
 
     return NextResponse.json({ success: true, data: updatedUser });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
   }
 }

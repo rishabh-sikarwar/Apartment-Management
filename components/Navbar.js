@@ -1,10 +1,10 @@
 // components/Navbar.jsx
 import Link from "next/link";
 import NavbarClient from "./NavbarClient";
-import { checkUserFromServer } from "@/lib/checkUser";
+import { checkUser } from "@/lib/checkUser";
 
 const Navbar = async () => {
-  const user = await checkUserFromServer();
+  const user = await checkUser();
 
   return (
     <header className="sticky top-0 z-50 backdrop-blur-x1 bg-blue-100 shadow-md transition duration-500">
