@@ -23,22 +23,20 @@ export default function DashboardWatchMan() {
   }, []);
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 space-y-16 pb-20">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
       {/* 1. GATE CONTROL */}
       <section>
         <div className="flex items-center gap-4 mb-8">
-          <div className="h-10 w-2 bg-rose-600 rounded-full shadow-lg shadow-rose-200"></div>
+          <div className="h-10 w-1.5 bg-rose-600 rounded-full shadow-md shadow-rose-200"></div>
           <div>
-            <h3 className="text-2xl font-extrabold text-gray-800 tracking-tight">
+            <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
               Gate Control
             </h3>
-            <p className="text-gray-500 font-medium text-sm">
-              Entry/Exit management.
-            </p>
+            <p className="text-gray-500 text-sm mt-1">Entry/Exit management.</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Link href="/watchman" className="h-full">
             <Section
               title="Security Console"
@@ -62,18 +60,18 @@ export default function DashboardWatchMan() {
       {/* 2. VENDOR MANAGEMENT */}
       <section>
         <div className="flex items-center gap-4 mb-8">
-          <div className="h-10 w-2 bg-purple-600 rounded-full shadow-lg shadow-purple-200"></div>
+          <div className="h-10 w-1.5 bg-purple-600 rounded-full shadow-md shadow-purple-200"></div>
           <div>
-            <h3 className="text-2xl font-extrabold text-gray-800 tracking-tight">
+            <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
               Vendor Management
             </h3>
-            <p className="text-gray-500 font-medium text-sm">
+            <p className="text-gray-500 text-sm mt-1">
               Service providers and deliveries.
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Link href="/vendor/register" className="h-full">
             <Section
               title="Register Vendor"

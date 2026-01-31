@@ -12,8 +12,8 @@ import {
 } from "lucide-react";
 
 const DashboardHouseOwner = () => {
-  // ... (Keep existing fetch logic) ...
   const [userRole, setUserRole] = useState("");
+
   useEffect(() => {
     async function fetchUserRole() {
       try {
@@ -22,70 +22,88 @@ const DashboardHouseOwner = () => {
           const data = await res.json();
           setUserRole(data.user.role);
         }
-      } catch (error) {}
+      } catch (error) {
+        console.error("Error fetching user role:", error);
+      }
     }
     fetchUserRole();
   }, []);
 
   return (
-    <div className="space-y-10 pb-10">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
       {/* 1. ESSENTIALS */}
-      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">
-          Essentials
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Link href="/pay-with-qr">
+      <section>
+        <div className="flex items-center gap-4 mb-8">
+          <div className="h-10 w-1.5 bg-green-600 rounded-full shadow-md shadow-green-200"></div>
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Essentials
+            </h3>
+            <p className="text-gray-500 text-sm mt-1">
+              Payments and Complaints.
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Link href="/pay-with-qr" className="h-full">
             <Section
               title="Pay Maintenance"
               description="Scan QR to clear dues instantly."
-              icon={<IndianRupee className="w-6 h-6" />}
+              icon={<IndianRupee />}
               variant="emerald"
             />
           </Link>
-          <Link href="/complaints">
+          <Link href="/complaints" className="h-full">
             <Section
-              title="Raise Complaint"
+              title="File a Complaint"
               description="Report plumbing, electrical issues."
-              icon={<AlertTriangle className="w-6 h-6" />}
+              icon={<AlertTriangle />}
               variant="rose"
             />
           </Link>
         </div>
-      </div>
+      </section>
 
       {/* 2. LIFESTYLE & GATE */}
-      <div>
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6 px-2">
-          Lifestyle & Gate
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Link href="/dashboard/visitor/new">
+      <section>
+        <div className="flex items-center gap-4 mb-8">
+          <div className="h-10 w-1.5 bg-blue-600 rounded-full shadow-md shadow-blue-200"></div>
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Lifestyle & Gate
+            </h3>
+            <p className="text-gray-500 text-sm mt-1">
+              Bookings and Visitor Management.
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Link href="/dashboard/visitor/new" className="h-full">
             <Section
               title="Gate Pass"
-              description="Pre-approve guests."
-              icon={<UserPlus className="w-6 h-6" />}
+              description="Pre-approve visitors for entry."
+              icon={<UserPlus />}
               variant="blue"
             />
           </Link>
-          <Link href="/Facilities">
+          <Link href="/Facilities" className="h-full">
             <Section
               title="Book Amenities"
-              description="Gym, Hall, Clubhouse."
-              icon={<CalendarDays className="w-6 h-6" />}
+              description="Gym, Hall, Clubhouse bookings."
+              icon={<CalendarDays />}
               variant="purple"
             />
           </Link>
-          <Link href="/notice-board">
+          <Link href="/notice-board" className="h-full">
             <Section
               title="Notices"
-              description="Read society updates."
-              icon={<Clipboard className="w-6 h-6" />}
+              description="Read society updates and circulars."
+              icon={<Clipboard />}
               variant="orange"
             />
           </Link>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

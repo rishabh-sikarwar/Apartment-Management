@@ -5,19 +5,17 @@ import Section from "../section";
 import {
   CheckCircle,
   Users,
-  CreditCard,
-  Eye,
   Building,
   QrCode,
   FileText,
+  Eye,
 } from "lucide-react";
 
 export default function DashboardSocietySecretary() {
-  // ... (Keep existing fetch logic) ...
   const [userRole, setUserRole] = useState("");
+
   useEffect(() => {
     async function fetchUserRole() {
-      // ... same fetch logic ...
       try {
         const res = await fetch("/api/auth/me");
         if (res.ok) {
@@ -30,89 +28,114 @@ export default function DashboardSocietySecretary() {
   }, []);
 
   return (
-    <div className="space-y-10 pb-10">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
       {/* 1. PRIORITY ACTIONS */}
-      <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
-        <h3 className="text-sm font-bold text-blue-800 uppercase tracking-widest mb-6 flex items-center gap-2">
-          <CheckCircle className="w-4 h-4" /> Pending Approvals
-        </h3>
+      <section>
+        <div className="flex items-center gap-4 mb-8">
+          <div className="h-10 w-1.5 bg-blue-600 rounded-full shadow-md shadow-blue-200"></div>
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Approvals & Actions
+            </h3>
+            <p className="text-gray-500 text-sm mt-1">
+              Items requiring your attention.
+            </p>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link href="/dashboard/society-admin/approve-payments">
+          <Link
+            href="/dashboard/society-admin/approve-payments"
+            className="h-full"
+          >
             <Section
               title="Approve Payments"
               description="Verify resident transactions."
-              icon={<CheckCircle className="w-6 h-6" />}
+              icon={<CheckCircle />}
               variant="blue"
             />
           </Link>
-          <Link href="/dashboard/visitor">
+          <Link href="/dashboard/visitor" className="h-full">
             <Section
               title="Visitor Approvals"
               description="Manage gate pass requests."
-              icon={<Users className="w-6 h-6" />}
+              icon={<Users />}
               variant="blue"
             />
           </Link>
-          <Link href="/dashboard/society-admin">
+          <Link href="/dashboard/society-admin" className="h-full">
             <Section
               title="Admin Console"
               description="Main society settings."
-              icon={<Building className="w-6 h-6" />}
+              icon={<Building />}
               variant="blue"
             />
           </Link>
         </div>
-      </div>
+      </section>
 
       {/* 2. FINANCE */}
-      <div>
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6 px-2">
-          Financial Management
-        </h3>
+      <section>
+        <div className="flex items-center gap-4 mb-8">
+          <div className="h-10 w-1.5 bg-emerald-600 rounded-full shadow-md shadow-emerald-200"></div>
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Financials
+            </h3>
+            <p className="text-gray-500 text-sm mt-1">
+              Manage funds and accounts.
+            </p>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link href="/Accounting">
+          <Link href="/Accounting" className="h-full">
             <Section
               title="Society Ledger"
               description="Accounting & Billing reports."
-              icon={<FileText className="w-6 h-6" />}
+              icon={<FileText />}
               variant="emerald"
             />
           </Link>
-          <Link href="/dashboard/society-admin/upload-qr">
+          <Link href="/dashboard/society-admin/upload-qr" className="h-full">
             <Section
               title="QR Code Setup"
               description="Update UPI collection codes."
-              icon={<QrCode className="w-6 h-6" />}
+              icon={<QrCode />}
               variant="emerald"
             />
           </Link>
         </div>
-      </div>
+      </section>
 
       {/* 3. MONITORING */}
-      <div>
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6 px-2">
-          Monitoring
-        </h3>
+      <section>
+        <div className="flex items-center gap-4 mb-8">
+          <div className="h-10 w-1.5 bg-orange-600 rounded-full shadow-md shadow-orange-200"></div>
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Monitoring
+            </h3>
+            <p className="text-gray-500 text-sm mt-1">View logs and history.</p>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link href="/watchman-logs">
+          <Link href="/watchman-logs" className="h-full">
             <Section
-              title="Daily Logs"
+              title="Gate Logs"
               description="View entry/exit activity."
-              icon={<Eye className="w-6 h-6" />}
+              icon={<Eye />}
               variant="orange"
             />
           </Link>
-          <Link href="/allVisitor">
+          <Link href="/allVisitor" className="h-full">
             <Section
               title="Visitor History"
               description="Full database of guests."
-              icon={<Users className="w-6 h-6" />}
+              icon={<Users />}
               variant="orange"
             />
           </Link>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

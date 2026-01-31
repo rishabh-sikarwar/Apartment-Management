@@ -35,7 +35,7 @@ export default function DashboardStaff() {
   }
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 space-y-12 pb-20">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
       {/* 1. GENERAL STAFF PORTAL */}
       <RoleGuard
         roles={["STAFF", "WATCHMAN", "TECHNICIAN"]}
@@ -43,18 +43,18 @@ export default function DashboardStaff() {
       >
         <section>
           <div className="flex items-center gap-4 mb-8">
-            <div className="h-10 w-2 bg-blue-600 rounded-full shadow-lg shadow-blue-200"></div>
+            <div className="h-10 w-1.5 bg-blue-600 rounded-full shadow-md shadow-blue-200"></div>
             <div>
-              <h3 className="text-2xl font-extrabold text-gray-800 tracking-tight">
+              <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
                 Staff Portal
               </h3>
-              <p className="text-gray-500 font-medium text-sm">
+              <p className="text-gray-500 text-sm mt-1">
                 Manage your profile, shifts, and tasks.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Link href="/staff" className="h-full">
               <Section
                 title="My Profile & Shifts"
@@ -75,22 +75,22 @@ export default function DashboardStaff() {
         </section>
       </RoleGuard>
 
-      {/* 2. WATCHMAN SPECIFIC (If dual role) */}
+      {/* 2. WATCHMAN SPECIFIC */}
       <RoleGuard roles={["WATCHMAN"]} userRole={userRole}>
-        <section>
+        <section className="mt-12">
           <div className="flex items-center gap-4 mb-8">
-            <div className="h-10 w-2 bg-rose-600 rounded-full shadow-lg shadow-rose-200"></div>
+            <div className="h-10 w-1.5 bg-rose-600 rounded-full shadow-md shadow-rose-200"></div>
             <div>
-              <h3 className="text-2xl font-extrabold text-gray-800 tracking-tight">
+              <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
                 Security Access
               </h3>
-              <p className="text-gray-500 font-medium text-sm">
+              <p className="text-gray-500 text-sm mt-1">
                 Gate control and monitoring.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Link href="/watchman" className="h-full">
               <Section
                 title="Watchman Dashboard"
