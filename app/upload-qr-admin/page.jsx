@@ -76,7 +76,7 @@ export default function UploadQR() {
         />
       )}
 
-      <Button onClick={handleUpload} disabled={!file || loading}>
+      <Button onClick={handleUpload} disabled={!file || loading} className="cursor-pointer">
         {loading ? "Uploading…" : "Save QR"}
       </Button>
     </div>

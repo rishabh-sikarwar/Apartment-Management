@@ -1,61 +1,70 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { checkUser } from "@/lib/checkUser";
 
 /* GET – list pending requests for *my* society */
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) return new NextResponse("Unauth", { status: 401 });
+  const user = await checkUser();
+  if (!user) return new NextResponse("Unauth", { status: 401 });
 
-  const meAdmin = await db.societyAdmin.findFirst({
-    where: { user: { clerkUserId: userId } },
+  // Use the logged-in user's ID to find their admin record
+  const meAdmin = await db.societyAdmin.findUnique({
+    where: { userId: user.id },
     include: { society: true },
   });
-  if (!meAdmin) return new NextResponse("Forbidden", { status: 40 });
+
+  if (!meAdmin) return new NextResponse("Forbidden", { status: 403 });
 
   const requests = await db.pendingAccess.findMany({
     where: { societyId: meAdmin.societyId, status: "PENDING" },
     include: { user: true },
   });
+
   return NextResponse.json({ requests });
 }
 
 /* PATCH – approve / reject */
 export async function PATCH(req) {
-  const { userId } = await auth();
-  if (!userId) return new NextResponse("Unauth", { status: 401 });
+  const user = await checkUser();
+  if (!user) return new NextResponse("Unauth", { status: 401 });
 
-  const meAdmin = await db.societyAdmin.findFirst({
-    where: { user: { clerkUserId: userId } },
+  const meAdmin = await db.societyAdmin.findUnique({
+    where: { userId: user.id },
   });
+
   if (!meAdmin) return new NextResponse("Forbidden", { status: 403 });
 
   const { id, action } = await req.json();
+
   const reqEntry = await db.pendingAccess.findUnique({ where: { id } });
   if (!reqEntry || reqEntry.societyId !== meAdmin.societyId)
     return new NextResponse("Not found", { status: 404 });
 
   if (action === "APPROVE") {
-    // 1) update user
+    // 1) Update User Role & Society
     await db.user.update({
       where: { id: reqEntry.userId },
       data: {
         role: reqEntry.requestedRole,
         societyId: reqEntry.societyId,
-        phoneNumber: reqEntry.phoneNumber,
+        phoneNumber: reqEntry.phoneNumber || undefined,
       },
     });
 
-    // 2) attach to flat if provided
+    // 2) Attach to Flat
     if (reqEntry.flatId) {
-      let flatUpdateField;
+      let flatUpdateField = {};
       if (reqEntry.requestedRole === "HOUSE_OWNER") {
         flatUpdateField = { ownerId: reqEntry.userId };
-      } else if (["SOCIETY_MEMBER", "TENANT", "RESIDENT"].includes(reqEntry.requestedRole)) {
+      } else if (
+        ["SOCIETY_MEMBER", "TENANT", "RESIDENT"].includes(
+          reqEntry.requestedRole,
+        )
+      ) {
         flatUpdateField = { residentId: reqEntry.userId };
       }
 
-      if (flatUpdateField) {
+      if (Object.keys(flatUpdateField).length > 0) {
         await db.flat.update({
           where: { id: reqEntry.flatId },
           data: flatUpdateField,
@@ -63,22 +72,24 @@ export async function PATCH(req) {
       }
     }
 
-    // 3) create society member row
+    // 3) Create Staff entry if role requires it
     const staffRoles = ["STAFF", "TECHNICIAN", "WATCHMAN"];
     if (staffRoles.includes(reqEntry.requestedRole)) {
-      // avoid duplicate staff rows if user was already a staff member
       const existing = await db.staff.findFirst({
         where: { userId: reqEntry.userId, societyId: reqEntry.societyId },
       });
 
-
-      
       if (!existing) {
+        // Need to fetch user name since it might be split in DB
+        const targetUser = await db.user.findUnique({
+          where: { id: reqEntry.userId },
+        });
+
         await db.staff.create({
           data: {
-            name: reqEntry.userId.name || reqEntry.userId.firstName || "", // fallback if user.name nullable
+            name: targetUser?.name || targetUser?.firstName || "Staff Member",
             role: reqEntry.requestedRole,
-            salary: 0, // or set an initial salary
+            salary: 0,
             societyId: reqEntry.societyId,
             userId: reqEntry.userId,
           },
@@ -86,16 +97,14 @@ export async function PATCH(req) {
       }
     }
 
-    
-    // 4) mark request done
-    await db.pendingAccess.delete({
-      where: { id },
-    });
+    // 4) Mark request done
+    await db.pendingAccess.delete({ where: { id } });
   } else {
     await db.pendingAccess.update({
       where: { id },
       data: { status: "REJECTED" },
     });
   }
+
   return NextResponse.json({ ok: true });
 }

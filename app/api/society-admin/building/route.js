@@ -1,37 +1,21 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/prisma";
+import { checkUser } from "@/lib/checkUser";
 
 export async function POST(req) {
   try {
-    const { userId } = await auth()
-      if (!userId) return new NextResponse("Unauthorized", { status: 401 });
-
-      
-      const admin = await db.user.findUnique({
-        where: {
-          clerkUserId: userId,
-        },
-        include: {
-          society: true,
-        },
-      });
-
+    const user = await checkUser();
+    if (!user || !user.societyId)
+      return new NextResponse("Unauthorized", { status: 401 });
 
     const body = await req.json();
     const { name, numberOfFloors } = body;
-
-
-    if (!admin) {
-      console.error("Admin not found");
-      return new NextResponse.json({error: "Admin not found"}, { status: 404});
-    }
 
     const building = await db.building.create({
       data: {
         name,
         numberOfFloors: parseInt(numberOfFloors),
-        societyId: admin.societyId,
+        societyId: user.societyId,
       },
     });
 
@@ -42,24 +26,13 @@ export async function POST(req) {
   }
 }
 
-
-
-
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId)
+  const user = await checkUser();
+  if (!user || !user.societyId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Is this user a society‑admin?
-  const admin = await db.user.findUnique({
-    where: {
-      clerkUserId: userId,
-    },
-   });
-  if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   const buildings = await db.building.findMany({
-    where: { societyId: admin.societyId },
+    where: { societyId: user.societyId },
     orderBy: { name: "asc" },
   });
 

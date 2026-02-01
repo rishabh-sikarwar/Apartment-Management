@@ -1,4 +1,3 @@
-// ✅ /api/visitor/checkin/route.js
 import { db } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -39,22 +38,15 @@ export async function POST(req) {
         },
       });
       message = "✅ Check-out successful";
-    } else if (visitor.status === "CHECKED_OUT") {
-      return NextResponse.json({
-        message: "⚠️ Already checked out",
-        visitor,
-      });
+    } else {
+      return NextResponse.json({ message: "⚠️ Already checked out", visitor });
     }
 
-    return NextResponse.json({
-      success: true,
-      message,
-      visitor: updated,
-    });
+    return NextResponse.json({ success: true, message, visitor: updated });
   } catch (error) {
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

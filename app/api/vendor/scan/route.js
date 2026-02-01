@@ -3,15 +3,14 @@ import { NextResponse } from "next/server";
 
 export async function POST(req) {
   const { vendorId } = await req.json();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date();
+  const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+  const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
   const existing = await db.vendorLog.findFirst({
     where: {
       vendorId,
-      date: {
-        gte: new Date(today + "T00:00:00"),
-        lte: new Date(today + "T23:59:59"),
-      },
+      date: { gte: startOfDay, lte: endOfDay },
     },
   });
 
@@ -24,14 +23,12 @@ export async function POST(req) {
     });
     return NextResponse.json({ message: "✅ Entry recorded", entry });
   } else if (!existing.exitTime) {
-    const updated = await prisma.vendorLog.update({
+    const updated = await db.vendorLog.update({
       where: { id: existing.id },
       data: { exitTime: new Date() },
     });
     return NextResponse.json({ message: "✅ Exit recorded", updated });
   } else {
-    return NextResponse.json({
-      message: "✅ Already checked in and out today",
-    });
+    return NextResponse.json({ message: "✅ Already checked out today" });
   }
 }

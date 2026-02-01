@@ -11,6 +11,11 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+/* ✅ Cloudinary Configuration */
+const CLOUD_URL = "https://api.cloudinary.com/v1_1/dayrre5om/image/upload";
+const UPLOAD_PRESET = "Apartment";
 
 const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
@@ -21,9 +26,11 @@ const ProfilePage = () => {
     email: "",
     phoneNumber: "",
     profilePicture: "",
+    profileFile: null, // To store the raw file object
   });
 
   const fileInputRef = useRef(null);
+  const router = useRouter();
 
   // Fetch Current User
   useEffect(() => {
@@ -58,12 +65,30 @@ const ProfilePage = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    try {
-      // 1. If file exists, upload it first (You need an upload API for this)
-      // const formData = new FormData();
-      // if (user.profileFile) formData.append("file", user.profileFile);
+    let finalImageUrl = user.profilePicture;
 
-      // 2. Update User Data
+    try {
+      // 1. ✅ If a new file exists, upload to Cloudinary first
+      if (user.profileFile) {
+        const formData = new FormData();
+        formData.append("file", user.profileFile);
+        formData.append("upload_preset", UPLOAD_PRESET);
+
+        const uploadRes = await fetch(CLOUD_URL, {
+          method: "POST",
+          body: formData,
+        });
+
+        const uploadData = await uploadRes.json();
+
+        if (!uploadRes.ok || !uploadData.secure_url) {
+          throw new Error(uploadData.error?.message || "Image upload failed");
+        }
+
+        finalImageUrl = uploadData.secure_url; // Get the hosted URL
+      }
+
+      // 2. Update User Data in Backend (Sending the URL, not the file)
       const res = await fetch("/api/auth/update-profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -72,14 +97,27 @@ const ProfilePage = () => {
           lastName: user.lastName,
           phoneNumber: user.phoneNumber,
           email: user.email,
+          profilePicture: finalImageUrl, 
         }),
       });
 
       if (!res.ok) throw new Error("Update failed");
 
+      // Update local state to remove the raw file (since it's uploaded)
+      setUser((prev) => ({
+        ...prev,
+        profilePicture: finalImageUrl,
+        profileFile: null,
+      }));
+
       toast.success("Profile updated successfully!");
+
+      router.refresh();
+      router.push("/dashboard");
+      
     } catch (error) {
-      toast.error("Failed to update profile");
+      console.error(error);
+      toast.error(error.message || "Failed to update profile");
     } finally {
       setSaving(false);
     }
@@ -145,7 +183,7 @@ const ProfilePage = () => {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 bg-gray-900 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-black transition-all shadow-md active:scale-95"
+                className="flex items-center gap-2 bg-gray-900 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-black transition-all shadow-md active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

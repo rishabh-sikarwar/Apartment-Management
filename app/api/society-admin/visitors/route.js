@@ -1,34 +1,24 @@
-// ↳  GET /api/society-admin/visitors
 import { db } from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { checkUser } from "@/lib/checkUser";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    /* 1️⃣  Who’s calling?  ------------------------------------ */
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-      }
-      
-      const user = await db.user.findUnique({
-        where: { clerkUserId: userId },
-      });
+    const user = await checkUser();
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    console.log("[Visitors API] User:", user);
-    console.log("user.id:", user.id);
-
-    /* 2️⃣  Must be a Society-Admin - fetch his/her societyId -- */
+    // Fetch Society Admin details
     const admin = await db.societyAdmin.findUnique({
-      where: {  userId: user.id },
+      where: { userId: user.id },
       select: { societyId: true },
     });
+
     if (!admin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    /* 3️⃣  Pull every visitor whose flat → building → society
-            matches the admin’s society                              */
+    // Fetch Visitors for that society
     const visitors = await db.visitor.findMany({
       where: {
         visitingFlat: {
@@ -51,7 +41,7 @@ export async function GET() {
     console.error("[Visitors API] ", err);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -16,7 +16,7 @@ import {
   LogOut,
   User as UserIcon,
   Settings,
-  ShieldCheck, // Icon for Admin
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,21 +31,45 @@ const navItems = [
   { name: "FAQ's", path: "/faq", icon: <HelpCircle className="w-5 h-5" /> },
 ];
 
-// Receive 'user' prop from Server Component (Navbar.jsx)
 export default function NavbarClient({ user: initialUser }) {
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  // Initialize state, but ALSO sync it when props change
+  // Initialize state
   const [user, setUser] = useState(initialUser);
   const profileRef = useRef(null);
 
-  // ✅ CRITICAL FIX: Sync local state when server prop changes (after login/logout)
+  // 1. Sync with Server Prop (Standard)
   useEffect(() => {
     setUser(initialUser);
   }, [initialUser]);
+
+  // 2. ✅ "Self-Healing" Check (The Fix)
+  // If the component thinks we are logged out, but we might have just logged in, check the API.
+  useEffect(() => {
+    const verifySession = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          // If API returns a user, but state is null -> Update State & Refresh Router
+          if (data.user && !user) {
+            setUser(data.user);
+            router.refresh();
+          }
+        }
+      } catch (err) {
+        // Ignore errors (user likely truly logged out)
+      }
+    };
+
+    // Only verify if we currently have no user in state
+    if (!user) {
+      verifySession();
+    }
+  }, [pathname]); // Run on every page navigation
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -108,7 +132,7 @@ export default function NavbarClient({ user: initialUser }) {
               {user.role === "SUPER_ADMIN" ? "Admin Panel" : "Dashboard"}
             </Link>
 
-            {/* Custom Circular Profile Dropdown */}
+            {/* Profile Dropdown */}
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -135,7 +159,6 @@ export default function NavbarClient({ user: initialUser }) {
                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
                     className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-50 origin-top-right"
                   >
-                    {/* Dropdown Header */}
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
                       <p className="text-sm font-bold text-gray-900 truncate">
                         {user.name || user.firstName}
@@ -151,7 +174,6 @@ export default function NavbarClient({ user: initialUser }) {
                       </div>
                     </div>
 
-                    {/* Links */}
                     <div className="py-2">
                       <Link
                         href="/profile"
@@ -169,7 +191,6 @@ export default function NavbarClient({ user: initialUser }) {
                       </Link>
                     </div>
 
-                    {/* Logout */}
                     <div className="border-t border-gray-100 py-1">
                       <button
                         onClick={handleLogout}

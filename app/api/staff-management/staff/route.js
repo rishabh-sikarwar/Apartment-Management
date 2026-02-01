@@ -1,27 +1,21 @@
-// app/api/staff-management/staff/route.js
 import { db } from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { checkUser } from "@/lib/checkUser";
 import { NextResponse } from "next/server";
 
-// check current user & role helper
-async function currentUser() {
-  const { userId: clerkUserId } = await auth();
-  if (!clerkUserId) return null;
-  return db.user.findUnique({ where: { clerkUserId } });
-}
-
 // ───────────────────────────────────────────────────────── GET
-// list all staff in the caller's society
+// List all staff in the caller's society
 export async function GET() {
   try {
-    const user = await currentUser();
-    if (!user)
+    const user = await checkUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     if (!["SOCIETY_ADMIN", "SUPER_ADMIN"].includes(user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // include latest salary status
+    // Include latest salary status
     const staff = await db.staff.findMany({
       where: { societyId: user.societyId },
       include: {
@@ -33,7 +27,6 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-
     return NextResponse.json(staff);
   } catch (err) {
     console.error("GET staff error:", err);
@@ -41,14 +34,15 @@ export async function GET() {
   }
 }
 
-// ───────────────────────────────────────────────────────── DELETE
-// delete a single staff => ?id=<staffId>
-// app/api/staff-management/staff/route.js
+// ───────────────────────────────────────────────────────── PATCH
+// Update staff status (Active/Inactive)
 export async function PATCH(req) {
   try {
-    const user = await currentUser();
-    if (!user)
+    const user = await checkUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     if (!["SOCIETY_ADMIN", "SUPER_ADMIN"].includes(user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -79,4 +73,3 @@ export async function PATCH(req) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
-

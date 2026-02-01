@@ -1,24 +1,20 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/prisma";
+import { checkUser } from "@/lib/checkUser";
 
 export async function GET() {
-  const { userId } = await auth();
-  const admin = await db.user.findUnique({
-    where: {
-      clerkUserId: userId,
-     },
-  });
+  const user = await checkUser();
 
-  if (!admin)
+  if (!user || user.role !== "SOCIETY_ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
 
   const users = await db.user.findMany({
-    where: { societyId: admin.societyId },
+    where: { societyId: user.societyId },
   });
 
   const flats = await db.flat.findMany({
-    where: { building: { societyId: admin.societyId } },
+    where: { building: { societyId: user.societyId } },
     include: { building: true },
   });
 

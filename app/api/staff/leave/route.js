@@ -1,26 +1,38 @@
-import { db } from '@/lib/prisma';
-import { auth } from '@clerk/nextjs/server';
-import { PrismaClient } from '@prisma/client';
-import { NextResponse } from 'next/server';
-
-const prisma = new PrismaClient();
+import { db } from "@/lib/prisma";
+import { checkUser } from "@/lib/checkUser";
+import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
-    const { userId } = await auth()
-    const body = await req.json();
-    const { name, fromDate, toDate, reason } = body;
+    const user = await checkUser();
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
+    const body = await req.json();
+
+    // Case 1: Admin approving/rejecting leave
+    if (body.id && body.status) {
+      if (!["SOCIETY_ADMIN", "SUPER_ADMIN"].includes(user.role)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const updated = await db.leaveRequest.update({
+        where: { id: body.id },
+        data: { status: body.status },
+      });
+      return NextResponse.json(updated);
+    }
+
+    // Case 2: Staff applying for leave
+    const { fromDate, toDate, reason } = body;
+    const staff = await db.staff.findFirst({
+      where: { userId: user.id },
     });
 
-    const staff = await db.staff.findFirst({
-      where: {userId: user.id}
-    })
-
     if (!staff) {
-      return NextResponse.json({ error: 'Staff not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Staff profile not found" },
+        { status: 404 },
+      );
     }
 
     const newLeave = await db.leaveRequest.create({
@@ -28,40 +40,48 @@ export async function POST(req) {
         fromDate: new Date(fromDate),
         toDate: new Date(toDate),
         reason,
-        leaveType: 'Sick Leave', // Defaulting to Sick Leave
+        leaveType: "Sick Leave",
         staffId: staff.id,
         totalDays: Math.ceil(
-          (new Date(toDate) - new Date(fromDate)) / (1000 * 60 * 60 * 24)
+          (new Date(toDate) - new Date(fromDate)) / (1000 * 60 * 60 * 24),
         ),
       },
     });
 
     return NextResponse.json(newLeave);
   } catch (error) {
-    console.error('Error submitting leave:', error);
-    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
+    console.error("Leave Error:", error);
+    return NextResponse.json(
+      { error: "Something went wrong" },
+      { status: 500 },
+    );
   }
 }
 
 export async function GET() {
+  const user = await checkUser();
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { userId } = await auth();
+  // If Admin, show all requests
+  if (["SOCIETY_ADMIN", "SUPER_ADMIN"].includes(user.role)) {
+    const allLeaves = await db.leaveRequest.findMany({
+      where: { staff: { societyId: user.societyId } },
+      include: { staff: true },
+    });
+    return NextResponse.json(allLeaves);
+  }
 
-  const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
-  });
-
+  // If Staff, show own history
   const staff = await db.staff.findFirst({
     where: { userId: user.id },
   });
 
-  if (!staff) {
-    return NextResponse.json([], { status: 200 });
-  }
+  if (!staff) return NextResponse.json([], { status: 200 });
 
   const leaveHistory = await db.leaveRequest.findMany({
     where: { staffId: staff.id },
-    orderBy: { fromDate: 'desc' },
+    orderBy: { fromDate: "desc" },
   });
 
   return NextResponse.json(leaveHistory);

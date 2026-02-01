@@ -17,6 +17,7 @@ model User {
   password         String?            // Hashed password (optional if we allow OTP-only login)
   role             Role               @default(VISITOR)
   profilePicture   String?
+  paymentQrUrl     String?
   isActive         Boolean            @default(true)
   isVerified       Boolean            @default(false) // For OTP verification status
   

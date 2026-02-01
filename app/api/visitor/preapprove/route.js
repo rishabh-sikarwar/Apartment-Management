@@ -1,39 +1,30 @@
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { checkUser } from "@/lib/checkUser";
 
 export async function POST(req) {
   try {
-    const { userId } = await auth();
-    const body = await req.json();
-    const {
-      visitorName,
-      phoneNumber,
-      vehicleNumber, // Optional
-      purpose,
-      flatNumber,
-      residentName,
-      imageUrl, // Optional
-    } = body;
+    const user = await checkUser();
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Find the flat and resident user by flat number and resident name
-    const user = await db.user.findUnique({
+    const body = await req.json();
+    const { visitorName, phoneNumber, vehicleNumber, purpose, imageUrl } = body;
+
+    // Find the flat owned by the logged-in user
+    const flat = await db.flat.findFirst({
       where: {
-        clerkUserId: userId,
+        OR: [{ ownerId: user.id }, { residentId: user.id }],
       },
     });
 
-    console.log("User:", user);
-
-    const flat = await db.flat.findMany({
-      where: {
-        ownerId: user.id,
-      }
-    })
-    console.log("Flat:", flat);
-
-    
+    if (!flat) {
+      return NextResponse.json(
+        { error: "No flat assigned to user" },
+        { status: 404 },
+      );
+    }
 
     // Generate QR code token
     const qrCodeToken = nanoid(32);
@@ -45,8 +36,8 @@ export async function POST(req) {
         phoneNumber,
         vehicleNumber: vehicleNumber || null,
         purpose,
-        visitingFlatId: flat[0].id,
-        preApprovedByUserId: flat[0].ownerId,
+        visitingFlatId: flat.id,
+        preApprovedByUserId: user.id,
         status: "PENDING",
         qrCodeToken,
         imageUrl: imageUrl || null,
