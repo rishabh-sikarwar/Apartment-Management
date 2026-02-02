@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "react-hot-toast";
 import {
   User,
   Lock,
@@ -51,13 +51,17 @@ const SignInPage = () => {
 
       if (!res.ok) {
         triggerShake();
-        throw new Error(data.error || "Login failed");
+        // Uses the specific error message from the backend ("Invalid credentials")
+        throw new Error(
+          data.error || "Login failed. Please check your details.",
+        );
       }
 
       toast.success("Welcome back!");
       router.push("/dashboard");
-      router.refresh(); // Refresh to update Navbar state
+      router.refresh();
     } catch (error) {
+      // Display the specific error in the toast
       toast.error(error.message);
     } finally {
       setLoading(false);
@@ -66,7 +70,7 @@ const SignInPage = () => {
 
   return (
     <div className="flex w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden min-h-[600px] border border-gray-100">
-      {/* --- LEFT SIDE: Visuals (Matches Sign Up) --- */}
+      {/* --- LEFT SIDE: Visuals --- */}
       <div className="hidden md:flex md:w-5/12 bg-blue-600 flex-col justify-center items-center p-12 text-white relative">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-indigo-800 opacity-90"></div>
         <div className="relative z-10 text-center">
@@ -103,7 +107,7 @@ const SignInPage = () => {
               Email or Phone
             </label>
             <div
-              className={`relative group ${shakeField ? "animate-pulse" : ""}`}
+              className={`relative group ${shakeField ? "animate-pulse border-red-500" : ""}`}
             >
               <User className="absolute left-4 top-4 h-5 w-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
               <input
@@ -124,7 +128,7 @@ const SignInPage = () => {
               Password
             </label>
             <div
-              className={`relative group ${shakeField ? "animate-pulse" : ""}`}
+              className={`relative group ${shakeField ? "animate-pulse border-red-500" : ""}`}
             >
               <Lock className="absolute left-4 top-4 h-5 w-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
               <input
@@ -149,10 +153,10 @@ const SignInPage = () => {
               </button>
             </div>
 
-            {/* Forgot Password Link - Below input, Right Aligned */}
             <div className="text-right mt-2">
+              {/* ✅ FIXED: Updated href from "#" to "/forgot-password" */}
               <Link
-                href="#"
+                href="/forgot-password"
                 className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
               >
                 Forgot Password?

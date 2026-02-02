@@ -28,9 +28,10 @@ model User {
   buildingId       String?
   name             String?            // Can be combined firstName + lastName
 
-  // Relations
   otpSessions      Otp[]              // Relation to OTP table
-  
+  resetToken       String?    @unique
+  resetTokenExpiry DateTime?
+
   bookings         Booking[]
   complaints       Complaint[]
   documents        Document[]

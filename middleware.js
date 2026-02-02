@@ -15,6 +15,8 @@ const publicRoutes = [
   "/about",
   "/contact-us",
   "/faq",
+  "/forgot-password",
+  "/reset-password",
 ];
 
 export async function middleware(req) {
