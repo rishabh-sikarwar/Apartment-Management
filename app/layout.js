@@ -16,34 +16,38 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Apna Complex",
-  description: "A community management platform for your apartment complex",
+  title: "E-Partment",
+  description: "Smart Community Management Platform for Societies",
+  icons: {
+    icon: "/favicon.ico", // Ensure you have a favicon
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 text-gray-900`}
       >
         <NextTopLoader
-          color="#1e40af"
-          height={4}
+          color="#2563EB" // Blue-600 matching your theme
+          height={3}
           showSpinner={false}
           easing="ease-in-out"
           speed={400}
-          crawl={true}
-          crawlSpeed={200}
+          shadow="0 0 10px #2563EB,0 0 5px #2563EB"
         />
 
-        <Navbar />
+        <div className="flex flex-col min-h-screen">
+          <Navbar />
 
-        <main className="min-h-screen">{children}</main>
+          <main className="flex-grow">{children}</main>
 
-        {/* This handles the toasts for the entire app */}
+          <Footer />
+        </div>
+
+        {/* Global Toaster for Notifications */}
         <Toaster position="top-center" reverseOrder={false} />
-
-        <Footer />
       </body>
     </html>
   );
