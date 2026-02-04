@@ -1,33 +1,55 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { db } from "@/lib/prisma";
 
 export async function POST(req) {
   try {
-    const { identifier, otp } = await req.json();
+    const { identifier, otp, type } = await req.json();
 
-    const otpRecord = await prisma.otp.findFirst({
-      where: {
-        sentTo: identifier,
-        code: otp,
-      },
+    if (!identifier || !otp) {
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    }
+
+    // 1. Find the OTP record
+    // We look for the most recent OTP sent to this identifier
+    const record = await db.otp.findFirst({
+      where: { sentTo: identifier, type: type === "email" ? "EMAIL" : "PHONE" },
+      orderBy: { createdAt: "desc" },
     });
 
-    if (!otpRecord) {
-      return NextResponse.json({ error: "Invalid OTP" }, { status: 400 });
+    // 2. Check if record exists
+    if (!record) {
+      return NextResponse.json(
+        { error: "No OTP found. Please request a new one." }, // ✅ Toast Message
+        { status: 400 },
+      );
     }
 
-    if (new Date() > otpRecord.expiresAt) {
-      return NextResponse.json({ error: "OTP Expired" }, { status: 400 });
+    // 3. Check if OTP has expired
+    const now = new Date();
+    if (now > new Date(record.expiresAt)) {
+      return NextResponse.json(
+        { error: "OTP has expired. Please request a new one." }, // ✅ Toast Message
+        { status: 400 },
+      );
     }
 
-    // OTP is valid.
-    // In a strict system, we might return a signed token here.
-    // For now, we return success and let the client proceed to Register.
+    // 4. Check if OTP matches
+    if (record.code !== otp) {
+      return NextResponse.json(
+        { error: "Incorrect OTP. Please try again." }, // ✅ Toast Message
+        { status: 400 },
+      );
+    }
 
-    return NextResponse.json({ message: "OTP Verified" });
+    // 5. Success - Clean up used OTP (Optional but recommended)
+    await db.otp.delete({ where: { id: record.id } });
+
+    return NextResponse.json({ message: "Verified successfully" });
   } catch (error) {
-    return NextResponse.json({ error: "Verification Failed" }, { status: 500 });
+    console.error("Verify OTP Error:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

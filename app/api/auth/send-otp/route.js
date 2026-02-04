@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { db } from "@/lib/prisma"; // Use 'db' if you have the singleton, else import PrismaClient
+// import { PrismaClient } from "@prisma/client"; const prisma = new PrismaClient(); // (Fallback)
 import otpGenerator from "otp-generator";
 import nodemailer from "nodemailer";
 
-const prisma = new PrismaClient();
-
-// 1. Configure Email Transporter
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -16,17 +14,38 @@ const transporter = nodemailer.createTransport({
 
 export async function POST(req) {
   try {
-    const { identifier, type } = await req.json(); // identifier = email or phone
+    const { identifier, type, countryCode } = await req.json();
 
     if (!identifier) {
       return NextResponse.json(
-        { error: "Missing email or phone" },
+        { error: "Missing identifier" },
         { status: 400 },
       );
     }
 
-    // --- 1. Check if User Already Exists ---
-    const existingUser = await prisma.user.findFirst({
+    // --- 1. Rate Limit Check (Prevent Spam) ---
+    // Check the LATEST OTP sent to this user
+    const lastOtp = await db.otp.findFirst({
+      where: { sentTo: identifier },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (lastOtp) {
+      const timeDiff =
+        new Date().getTime() - new Date(lastOtp.createdAt).getTime();
+      // If less than 30 seconds (30000 ms), block request
+      if (timeDiff < 30000) {
+        const waitTime = Math.ceil((30000 - timeDiff) / 1000);
+        return NextResponse.json(
+          { error: `Please wait ${waitTime}s before resending.` },
+          { status: 429 }, // Too Many Requests
+        );
+      }
+    }
+
+    // --- 2. Check if User Already Exists (Only for Sign Up flow) ---
+    // If you use this endpoint for login too, remove this block
+    const existingUser = await db.user.findFirst({
       where:
         type === "email" ? { email: identifier } : { phoneNumber: identifier },
     });
@@ -38,23 +57,22 @@ export async function POST(req) {
       );
     }
 
-    // --- 2. Generate OTP ---
+    // --- 3. Clean up OLD OTPs ---
+    // Now safe to delete since we passed the rate limit check
+    await db.otp.deleteMany({ where: { sentTo: identifier } });
+
+    // --- 4. Generate & Save New OTP ---
     const otpCode = otpGenerator.generate(6, {
       upperCaseAlphabets: false,
       specialChars: false,
       lowerCaseAlphabets: false,
     });
+    
+    console.log("***************Generated OTP:********", otpCode);
 
-    // Set Expiry (10 Minutes)
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
-    // --- 3. Save OTP to Database ---
-    // Remove old OTPs for this identifier first
-    await prisma.otp.deleteMany({
-      where: { sentTo: identifier },
-    });
-
-    await prisma.otp.create({
+    await db.otp.create({
       data: {
         code: otpCode,
         expiresAt,
@@ -63,10 +81,8 @@ export async function POST(req) {
       },
     });
 
-    // --- 4. Send The Message (Email or SMS) ---
-
+    // --- 5. Send Message ---
     if (type === "email") {
-      // --- SEND EMAIL ---
       await transporter.sendMail({
         from: '"E-Partment Security" <no-reply@epartment.com>',
         to: identifier,
@@ -74,45 +90,35 @@ export async function POST(req) {
         html: `
           <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
             <h2 style="color: #2563EB;">E-Partment Verification</h2>
-            <p>Your One Time Password (OTP) for registration is:</p>
+            <p>Your One Time Password (OTP) is:</p>
             <h1 style="letter-spacing: 5px; color: #1e293b;">${otpCode}</h1>
             <p>This code expires in 10 minutes.</p>
           </div>
         `,
       });
-      console.log(`✅ Email sent to ${identifier}`);
     } else {
-      // --- SEND SMS (via Fast2SMS) ---
-
-      // Fast2SMS expects the number without +91 usually, but check their docs.
-      // Usually, just the 10 digits are fine if route is 'otp'.
-      const cleanPhone = identifier.replace("+91", "").trim();
+      // SMS Logic
+      // Ensure we use only the 10-digit number for Fast2SMS if they require it
+      const cleanPhone = identifier.replace(/\D/g, "").slice(-10);
 
       const url = "https://www.fast2sms.com/dev/bulkV2";
       const params = new URLSearchParams({
-        authorization: process.env.FAST2SMS_API_KEY, // Your API Key
-        variables_values: otpCode, // The OTP to replace in template
-        route: "otp", // Specific route for OTPs
+        authorization: process.env.FAST2SMS_API_KEY,
+        variables_values: otpCode,
+        route: "otp",
         numbers: cleanPhone,
       });
 
-      // Using fetch to call the SMS API
       const smsResponse = await fetch(`${url}?${params.toString()}`, {
         method: "GET",
       });
-
       const smsData = await smsResponse.json();
 
       if (!smsData.return) {
-        // If Fast2SMS fails (e.g., DLT issue or no credit)
-        console.error("❌ SMS API Error:", smsData);
-        // FALLBACK: Log to console so you can still test on localhost
-        console.log(`⚠️ SMS Failed. MOCK OTP for ${identifier}: ${otpCode}`);
-
-        // Optional: Throw error if you want to block the UI
-        // throw new Error("Failed to send SMS. Service down.");
-      } else {
-        console.log(`✅ SMS sent to ${identifier}`);
+        console.error("SMS Failed:", smsData);
+        // Don't block UI, just log it.
+        // In dev, you might want to return the code in the response for testing.
+        console.log(`[DEV ONLY] SMS OTP for ${identifier}: ${otpCode}`);
       }
     }
 
