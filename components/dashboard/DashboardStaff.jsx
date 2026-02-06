@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, UserCog, ClipboardList, ShieldCheck } from "lucide-react";
 import Section from "../section";
-import RoleGuard from "../RoleGuard";
 
 export default function DashboardStaff() {
   const [userRole, setUserRole] = useState(null);
@@ -12,10 +11,10 @@ export default function DashboardStaff() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/auth/me");
+        const res = await fetch("/api/users/me");
         if (res.ok) {
           const data = await res.json();
-          setUserRole(data.user.role);
+          setUserRole(data.role);
         }
       } catch (err) {
         console.error("Role fetch error:", err);
@@ -37,10 +36,7 @@ export default function DashboardStaff() {
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
       {/* 1. GENERAL STAFF PORTAL */}
-      <RoleGuard
-        roles={["STAFF", "WATCHMAN", "TECHNICIAN"]}
-        userRole={userRole}
-      >
+      {["STAFF", "WATCHMAN", "TECHNICIAN"].includes(userRole) && (
         <section>
           <div className="flex items-center gap-4 mb-8">
             <div className="h-10 w-1.5 bg-blue-600 rounded-full shadow-md shadow-blue-200"></div>
@@ -73,10 +69,10 @@ export default function DashboardStaff() {
             </Link>
           </div>
         </section>
-      </RoleGuard>
+      )}
 
       {/* 2. WATCHMAN SPECIFIC */}
-      <RoleGuard roles={["WATCHMAN"]} userRole={userRole}>
+      {userRole === "WATCHMAN" && (
         <section className="mt-12">
           <div className="flex items-center gap-4 mb-8">
             <div className="h-10 w-1.5 bg-rose-600 rounded-full shadow-md shadow-rose-200"></div>
@@ -101,7 +97,7 @@ export default function DashboardStaff() {
             </Link>
           </div>
         </section>
-      </RoleGuard>
+      )}
     </div>
   );
 }

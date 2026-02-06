@@ -51,12 +51,12 @@ export default function NavbarClient({ user: initialUser }) {
   useEffect(() => {
     const verifySession = async () => {
       try {
-        const res = await fetch("/api/auth/me");
+        const res = await fetch("/api/users/me");
         if (res.ok) {
           const data = await res.json();
           // If API returns a user, but state is null -> Update State & Refresh Router
-          if (data.user && !user) {
-            setUser(data.user);
+          if (data && !user) {
+            setUser(data);
             router.refresh();
           }
         }

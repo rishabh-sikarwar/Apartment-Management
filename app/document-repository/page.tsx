@@ -8,7 +8,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { UploadCloud, FileText, Trash2, Info, Eye, Download } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
-import RoleGuard from '@/components/RoleGuard';
 import toast from 'react-hot-toast';
 
 interface DocumentItem {
@@ -100,14 +99,24 @@ export default function DocumentRepository() {
     doc.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Check if user has required role
+  if (!['SOCIETY_ADMIN', 'SUPER_ADMIN'].includes(role)) {
+    return (
+      <div className="p-8 max-w-7xl mx-auto">
+        <div className="text-red-600 text-sm font-semibold text-center mt-20">
+          You do not have permission to access this section.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <RoleGuard roles={['SOCIETY_ADMIN', 'SUPER_ADMIN']} userRole={role}>
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6 }}
-        >
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6 }}
+      >
           <h1 className="text-4xl font-bold mb-4 text-center">
             📘 Digital Society Document Center
           </h1>
@@ -222,7 +231,6 @@ export default function DocumentRepository() {
             </p>
           )}
         </motion.div>
-      </RoleGuard>
     </div>
   );
 }

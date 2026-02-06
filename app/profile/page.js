@@ -36,10 +36,10 @@ const ProfilePage = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await fetch("/api/auth/me");
+        const res = await fetch("/api/users/me");
         if (res.ok) {
           const data = await res.json();
-          setUser(data.user);
+          setUser(data);
         }
       } catch (error) {
         toast.error("Failed to load profile");

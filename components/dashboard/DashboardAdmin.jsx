@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Section from "../section";
-import RoleGuard from "../RoleGuard";
 import {
   Users,
   CreditCard,
@@ -22,10 +21,10 @@ export default function DashboardAdmin() {
   useEffect(() => {
     async function fetchUserRole() {
       try {
-        const res = await fetch("/api/auth/me");
+        const res = await fetch("/api/users/me");
         if (res.ok) {
           const data = await res.json();
-          setUserRole(data.user.role);
+          setUserRole(data.role);
         }
       } catch (error) {
         console.error("Error fetching role:", error);
@@ -37,7 +36,7 @@ export default function DashboardAdmin() {
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
       {/* --- QUICK ACTION: User Management --- */}
-      <RoleGuard roles={["SUPER_ADMIN"]} userRole={userRole}>
+      {userRole === "SUPER_ADMIN" && (
         <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
           <div>
             <h3 className="text-xl font-bold text-blue-900">
@@ -55,7 +54,7 @@ export default function DashboardAdmin() {
             Manage All Roles
           </Link>
         </div>
-      </RoleGuard>
+      )}
 
       {/* 1. SYSTEM CONTROL (Purple) */}
       <section>
@@ -72,36 +71,34 @@ export default function DashboardAdmin() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <RoleGuard roles={["SUPER_ADMIN"]} userRole={userRole}>
-            <Link href="/role-management" className="h-full">
-              <Section
-                title="Role Management"
-                description="Assign or revoke system-wide access roles."
-                icon={<Users />}
-                variant="purple"
-              />
-            </Link>
-          </RoleGuard>
-          <RoleGuard roles={["SUPER_ADMIN"]} userRole={userRole}>
-            <Link href="/upload-qr-admin" className="h-full">
-              <Section
-                title="Global QR Setup"
-                description="Manage master subscription payment QRs."
-                icon={<CreditCard />}
-                variant="purple"
-              />
-            </Link>
-          </RoleGuard>
-          <RoleGuard roles={["SUPER_ADMIN"]} userRole={userRole}>
-            <Link href="/features" className="h-full">
-              <Section
-                title="Feature Control"
-                description="Enable or disable specific system modules."
-                icon={<LayoutDashboard />}
-                variant="purple"
-              />
-            </Link>
-          </RoleGuard>
+          {userRole === "SUPER_ADMIN" && (
+            <>
+              <Link href="/role-management" className="h-full">
+                <Section
+                  title="Role Management"
+                  description="Assign or revoke system-wide access roles."
+                  icon={<Users />}
+                  variant="purple"
+                />
+              </Link>
+              <Link href="/upload-qr-admin" className="h-full">
+                <Section
+                  title="Global QR Setup"
+                  description="Manage master subscription payment QRs."
+                  icon={<CreditCard />}
+                  variant="purple"
+                />
+              </Link>
+              <Link href="/features" className="h-full">
+                <Section
+                  title="Feature Control"
+                  description="Enable or disable specific system modules."
+                  icon={<LayoutDashboard />}
+                  variant="purple"
+                />
+              </Link>
+            </>
+          )}
         </div>
       </section>
 

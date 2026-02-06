@@ -10,10 +10,10 @@ export default function DashboardDefault() {
   useEffect(() => {
     async function fetchUserRole() {
       try {
-        const res = await fetch("/api/auth/me");
+        const res = await fetch("/api/users/me");
         if (res.ok) {
           const data = await res.json();
-          setUserRole(data.user.role);
+          setUserRole(data.role);
         }
       } catch (error) {}
     }

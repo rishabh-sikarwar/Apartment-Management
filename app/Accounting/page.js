@@ -8,7 +8,6 @@
 import React, { useState, useEffect, useRef, useCallback, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import RoleGuard from '@/components/RoleGuard';
 
 
 
@@ -1235,7 +1234,7 @@ useEffect(() => {
   )}
 
   {/* EXPENSE FORM - only for ADMIN and SUPER_ADMIN */}
-  <RoleGuard roles={['SOCIETY_ADMIN', 'SUPER_ADMIN']} userRole={role}>
+  {['SOCIETY_ADMIN', 'SUPER_ADMIN'].includes(role) && (
     <div>
       <h3 className="text-2xl font-bold text-gray-800 mb-5">Log New Expense</h3>
       <AddExpenseForm
@@ -1244,7 +1243,7 @@ useEffect(() => {
         userEmail={user?.primaryEmailAddress?.emailAddress}
       />
     </div>
-  </RoleGuard>
+  )}
 
 </div>
 
