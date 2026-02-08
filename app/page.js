@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, CheckCircle2, ShieldCheck, Zap } from "lucide-react";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
 
 export default function HomePage() {
   const features = [
@@ -17,7 +17,7 @@ export default function HomePage() {
       title: "Visitor Management",
       img: "https://res.cloudinary.com/dayrre5om/image/upload/v1748017704/WhatsApp_Image_2025-05-23_at_21.45.24_159de20f_uei3wx.jpg",
       desc: "Secure your premises by verifying every visitor directly with residents seamlessly via the app.",
-      link: "/visitors", // Standardized link
+      link: "/visitors",
     },
     {
       title: "Complaint Management",
@@ -39,14 +39,16 @@ export default function HomePage() {
     },
     {
       title: "Document Repository",
-      img: "/image.png", // Ensure this image exists in public folder
+      img: "/image.png", // Ensure this exists or use a placeholder
       desc: "Store, access and manage all important society documents in a secure, organized digital repository.",
       link: "/documents",
     },
   ];
 
   return (
-    <div className="bg-gray-50/50 min-h-screen">
+    // ✅ REMOVED 'min-h-screen' here.
+    // The Layout handles the height. This prevents double scrolling.
+    <div className="bg-gray-50/50 w-full">
       {/* --- Hero Section --- */}
       <section className="relative pt-12 pb-20 lg:pt-20 lg:pb-28 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">

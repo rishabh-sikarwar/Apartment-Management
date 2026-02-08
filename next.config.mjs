@@ -1,4 +1,6 @@
+/** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone", // <--- CRITICAL for cPanel Deployment
   images: {
     remotePatterns: [
       {
@@ -8,6 +10,7 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
+        pathname: "**", // Added pathname wildcard to match all Cloudinary images
       },
     ],
   },

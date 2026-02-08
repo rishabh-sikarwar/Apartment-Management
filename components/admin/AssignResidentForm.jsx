@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+// REMOVED: import { useUser } from "@clerk/nextjs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,12 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"; // Import SelectContent
+} from "@/components/ui/select";
 import axios from "axios";
 import toast from "react-hot-toast";
 
 export default function AssignResidentPage() {
-  const { user } = useUser();
+  // REMOVED: const { user } = useUser(); -> Not needed here
   const [users, setUsers] = useState([]);
   const [flats, setFlats] = useState([]);
   const [selectedUser, setSelectedUser] = useState("");
@@ -29,9 +29,8 @@ export default function AssignResidentPage() {
         const res = await axios.get("/api/society-admin/get-user-flats");
         setUsers(res.data.users);
         setFlats(res.data.flats);
-        console.log("Fetched users:", res.data.users);
-        console.log("Fetched flats:", res.data.flats);
       } catch (err) {
+        console.error(err);
         toast.error("Error fetching data");
       }
     };
@@ -39,6 +38,11 @@ export default function AssignResidentPage() {
   }, []);
 
   const handleAssign = async () => {
+    if (!selectedUser || !selectedFlat || !selectedRole) {
+      toast.error("Please select all fields");
+      return;
+    }
+
     try {
       await axios.post("/api/society-admin/assign-role", {
         userId: selectedUser,
@@ -47,6 +51,7 @@ export default function AssignResidentPage() {
       });
       toast.success("Role assigned successfully!");
     } catch (err) {
+      console.error(err);
       toast.error("Failed to assign role");
     }
   };

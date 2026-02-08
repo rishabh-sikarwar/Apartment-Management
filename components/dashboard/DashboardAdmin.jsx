@@ -133,7 +133,7 @@ export default function DashboardAdmin() {
               variant="emerald"
             />
           </Link>
-          <Link href="/accounting" className="h-full">
+          <Link href="/Accounting" className="h-full">
             <Section
               title="Master Accounting"
               description="Track income, expenses, and ledgers."

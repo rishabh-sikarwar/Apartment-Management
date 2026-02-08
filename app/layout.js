@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "../components/Navbar";
@@ -19,7 +21,7 @@ export const metadata = {
   title: "E-Partment",
   description: "Smart Community Management Platform for Societies",
   icons: {
-    icon: "/favicon.ico", // Ensure you have a favicon
+    icon: "/favicon.ico",
   },
 };
 
@@ -27,10 +29,13 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 text-gray-900`}
+        // ✅ CHANGED: Applied flex-col and min-h-screen directly to body
+        // 'flex-col' stacks items vertically
+        // 'min-h-screen' ensures body is at least 100vh
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 text-gray-900 flex flex-col min-h-screen`}
       >
         <NextTopLoader
-          color="#2563EB" // Blue-600 matching your theme
+          color="#2563EB"
           height={3}
           showSpinner={false}
           easing="ease-in-out"
@@ -38,15 +43,12 @@ export default function RootLayout({ children }) {
           shadow="0 0 10px #2563EB,0 0 5px #2563EB"
         />
 
-        <div className="flex flex-col min-h-screen">
-          <Navbar />
+        <Navbar />
 
-          <main className="flex-grow">{children}</main>
+        <main className="flex-grow w-full">{children}</main>
 
-          <Footer />
-        </div>
+        <Footer />
 
-        {/* Global Toaster for Notifications */}
         <Toaster position="top-center" reverseOrder={false} />
       </body>
     </html>

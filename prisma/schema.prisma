@@ -1,5 +1,7 @@
 generator client {
   provider = "prisma-client-js"
+  // "native" is for your local Windows. The others are for the cPanel Linux server.
+  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -20,13 +22,14 @@ model User {
   paymentQrUrl     String?
   isActive         Boolean            @default(true)
   isVerified       Boolean            @default(false) // For OTP verification status
+  vehicles         Vehicle[]
   
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   
   societyId        String?
   buildingId       String?
-  name             String?            // Can be combined firstName + lastName
+  name             String?            // Can be combined firstnName + lastName
 
   otpSessions      Otp[]              // Relation to OTP table
   resetToken       String?    @unique
@@ -159,6 +162,19 @@ model Flat {
   visitors     Visitor[]
 
   @@map("flats")
+}
+
+model Vehicle {
+  id        String      @id @default(cuid())
+  number    String      @unique // Ensures searching by number works perfectly
+  type      VehicleType
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@map("vehicles")
 }
 
 model Visitor {
@@ -661,4 +677,10 @@ enum PaymentMethod {
 enum staffRole {
   ACTIVE 
   NON_ACTIVE
+}
+
+enum VehicleType {
+  TWO_WHEELER
+  FOUR_WHEELER
+  OTHER
 }

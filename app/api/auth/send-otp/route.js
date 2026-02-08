@@ -86,13 +86,24 @@ export async function POST(req) {
       await transporter.sendMail({
         from: '"E-Partment Security" <no-reply@epartment.com>',
         to: identifier,
-        subject: "Verify your Account",
+        subject: "Verify your E-Partment Account", 
         html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-            <h2 style="color: #2563EB;">E-Partment Verification</h2>
-            <p>Your One Time Password (OTP) is:</p>
-            <h1 style="letter-spacing: 5px; color: #1e293b;">${otpCode}</h1>
-            <p>This code expires in 10 minutes.</p>
+          <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h2 style="color: #2563EB; margin: 0;">E-Partment</h2>
+              <p style="color: #6B7280; font-size: 14px; margin-top: 5px;">Smart Society Management</p>
+            </div>
+            
+            <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; text-align: center;">
+              <p style="margin: 0; color: #374151; font-size: 16px;">Your verification code is:</p>
+              <h1 style="letter-spacing: 8px; color: #111827; font-size: 32px; margin: 15px 0;">${otpCode}</h1>
+              <p style="margin: 0; color: #6B7280; font-size: 14px;">Valid for 10 minutes</p>
+            </div>
+
+            <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 13px; color: #6B7280; line-height: 1.5;">
+              <p><strong>Note:</strong> If you don't see this email in your inbox, please check your <strong>Spam</strong> or <strong>Junk</strong> folder.</p>
+              <p>If you didn't request this code, you can safely ignore this email.</p>
+            </div>
           </div>
         `,
       });

@@ -401,8 +401,18 @@ const SignUpPage = () => {
       }
 
       setIsOtpSent(true);
-      setTimer(30); // ✅ Start 30s timer
-      toast.success(isResend ? "OTP Resent Successfully" : data.message);
+      setTimer(30); 
+     toast.success(
+       <div>
+         <p className="font-bold">OTP Sent Successfully!</p>
+         {otpMethod === "email" && (
+           <p className="text-xs mt-1 opacity-90">
+             If not found, please check your <b>Spam/Junk</b> folder.
+           </p>
+         )}
+       </div>,
+       { duration: 5000 }, // Show for 5 seconds so they have time to read
+     );
     } catch (error) {
       toast.error(error.message);
     } finally {

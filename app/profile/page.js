@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 /* ✅ Cloudinary Configuration */
 const CLOUD_URL = "https://api.cloudinary.com/v1_1/dayrre5om/image/upload";
@@ -155,7 +156,7 @@ const ProfilePage = () => {
               <div className="relative group">
                 <div className="h-32 w-32 rounded-full border-4 border-white bg-white shadow-lg overflow-hidden flex items-center justify-center text-4xl font-bold text-indigo-300 bg-indigo-50">
                   {user.profilePicture ? (
-                    <img
+                    <Image
                       src={user.profilePicture}
                       alt="Profile"
                       className="h-full w-full object-cover"

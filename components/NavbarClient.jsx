@@ -17,18 +17,15 @@ import {
   User as UserIcon,
   Settings,
   ShieldCheck,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 
 const navItems = [
   { name: "Home", path: "/", icon: <Home className="w-5 h-5" /> },
   { name: "About", path: "/about", icon: <Info className="w-5 h-5" /> },
-  {
-    name: "Contact Us",
-    path: "/contact-us",
-    icon: <Phone className="w-5 h-5" />,
-  },
-  { name: "FAQ's", path: "/faq", icon: <HelpCircle className="w-5 h-5" /> },
+  { name: "Contact", path: "/contact-us", icon: <Phone className="w-5 h-5" /> },
+  { name: "FAQ", path: "/faq", icon: <HelpCircle className="w-5 h-5" /> },
 ];
 
 export default function NavbarClient({ user: initialUser }) {
@@ -41,35 +38,31 @@ export default function NavbarClient({ user: initialUser }) {
   const [user, setUser] = useState(initialUser);
   const profileRef = useRef(null);
 
-  // 1. Sync with Server Prop (Standard)
+  // 1. Sync with Server Prop
   useEffect(() => {
     setUser(initialUser);
   }, [initialUser]);
 
-  // 2. ✅ "Self-Healing" Check (The Fix)
-  // If the component thinks we are logged out, but we might have just logged in, check the API.
+  // 2. "Self-Healing" Check
   useEffect(() => {
     const verifySession = async () => {
       try {
         const res = await fetch("/api/users/me");
         if (res.ok) {
           const data = await res.json();
-          // If API returns a user, but state is null -> Update State & Refresh Router
           if (data && !user) {
             setUser(data);
             router.refresh();
           }
         }
       } catch (err) {
-        // Ignore errors (user likely truly logged out)
+        // Ignore
       }
     };
-
-    // Only verify if we currently have no user in state
     if (!user) {
       verifySession();
     }
-  }, [pathname]); // Run on every page navigation
+  }, [pathname]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -97,16 +90,16 @@ export default function NavbarClient({ user: initialUser }) {
   return (
     <>
       {/* --- DESKTOP NAV --- */}
-      <div className="hidden sm:flex gap-4 items-center">
+      <div className="hidden md:flex gap-2 items-center">
         {navItems.map((item) => (
           <Link
             key={item.name}
             href={item.path}
             className={clsx(
-              "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300",
+              "flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-semibold transition-all duration-300",
               pathname === item.path
-                ? "bg-blue-700 text-white shadow-lg"
-                : "text-blue-900 hover:bg-blue-200",
+                ? "bg-blue-600 text-white shadow-md"
+                : "text-slate-600 hover:text-blue-600 hover:bg-blue-50",
             )}
           >
             {item.name}
@@ -115,40 +108,45 @@ export default function NavbarClient({ user: initialUser }) {
       </div>
 
       {/* --- AUTH BUTTONS (Desktop) --- */}
-      <div className="hidden sm:flex items-center gap-4 ml-4">
+      <div className="hidden md:flex items-center gap-4 ml-6 pl-6 border-l border-slate-200">
         {user ? (
           /* LOGGED IN STATE */
           <div className="flex items-center gap-4">
             <Link
               href="/dashboard"
               className={clsx(
-                "px-5 py-2 rounded-full text-sm font-semibold transition shadow-md hover:shadow-lg flex items-center gap-2",
+                "px-6 py-2.5 rounded-full text-base font-bold transition shadow-sm hover:shadow-md flex items-center gap-2 text-white",
                 user.role === "SUPER_ADMIN"
-                  ? "bg-purple-700 hover:bg-purple-800 text-white"
-                  : "bg-blue-600 hover:bg-blue-700 text-white",
+                  ? "bg-purple-600 hover:bg-purple-700"
+                  : "bg-slate-900 hover:bg-black",
               )}
             >
-              <LayoutDashboard className="w-4 h-4" />
-              {user.role === "SUPER_ADMIN" ? "Admin Panel" : "Dashboard"}
+              <LayoutDashboard className="w-5 h-5" />
+              {user.role === "SUPER_ADMIN" ? "Admin" : "Dashboard"}
             </Link>
 
             {/* Profile Dropdown */}
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="h-10 w-10 rounded-full border-2 border-white shadow-md overflow-hidden hover:scale-105 transition-transform focus:outline-none ring-2 ring-transparent hover:ring-blue-300"
+                className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200"
               >
-                {user.profilePicture ? (
-                  <img
-                    src={user.profilePicture}
-                    alt="Profile"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="h-full w-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
-                    {user.firstName?.[0]?.toUpperCase() || "U"}
-                  </div>
-                )}
+                <div className="h-10 w-10 rounded-full border border-slate-200 shadow-sm overflow-hidden bg-white">
+                  {user.profilePicture ? (
+                    <img
+                      src={user.profilePicture}
+                      alt="Profile"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg">
+                      {user.firstName?.[0]?.toUpperCase() || "U"}
+                    </div>
+                  )}
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-500 transition-transform ${isProfileOpen ? "rotate-180" : ""}`}
+                />
               </button>
 
               <AnimatePresence>
@@ -157,20 +155,20 @@ export default function NavbarClient({ user: initialUser }) {
                     initial={{ opacity: 0, scale: 0.95, y: 10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                    className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-50 origin-top-right"
+                    className="absolute right-0 mt-3 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 origin-top-right"
                   >
-                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                      <p className="text-sm font-bold text-gray-900 truncate">
+                    <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+                      <p className="text-base font-bold text-slate-900 truncate">
                         {user.name || user.firstName}
                       </p>
-                      <p className="text-xs text-gray-500 truncate mb-2">
+                      <p className="text-sm text-slate-500 truncate mb-2">
                         {user.email || user.phoneNumber}
                       </p>
-                      <div className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                      <div className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
                         {user.role === "SUPER_ADMIN" && (
-                          <ShieldCheck className="w-3 h-3" />
+                          <ShieldCheck className="w-3.5 h-3.5" />
                         )}
-                        {user.role}
+                        {user.role.replace("_", " ")}
                       </div>
                     </div>
 
@@ -178,25 +176,25 @@ export default function NavbarClient({ user: initialUser }) {
                       <Link
                         href="/profile"
                         onClick={() => setIsProfileOpen(false)}
-                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                        className="flex items-center px-5 py-3 text-base font-medium text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                       >
-                        <UserIcon className="w-4 h-4 mr-3" /> My Profile
+                        <UserIcon className="w-5 h-5 mr-3" /> My Profile
                       </Link>
                       <Link
                         href="/settings"
                         onClick={() => setIsProfileOpen(false)}
-                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                        className="flex items-center px-5 py-3 text-base font-medium text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                       >
-                        <Settings className="w-4 h-4 mr-3" /> Settings
+                        <Settings className="w-5 h-5 mr-3" /> Settings
                       </Link>
                     </div>
 
-                    <div className="border-t border-gray-100 py-1">
+                    <div className="border-t border-slate-100 pt-2 pb-1">
                       <button
                         onClick={handleLogout}
-                        className="flex w-full items-center px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        className="flex w-full items-center px-5 py-3 text-base font-medium text-red-600 hover:bg-red-50 transition-colors"
                       >
-                        <LogOut className="w-4 h-4 mr-3" /> Sign Out
+                        <LogOut className="w-5 h-5 mr-3" /> Sign Out
                       </button>
                     </div>
                   </motion.div>
@@ -209,13 +207,13 @@ export default function NavbarClient({ user: initialUser }) {
           <div className="flex items-center gap-3">
             <Link
               href="/sign-in"
-              className="px-5 py-2 rounded-full text-sm font-semibold text-blue-700 border border-blue-200 hover:border-blue-600 hover:bg-blue-50 transition-all"
+              className="px-6 py-2.5 rounded-full text-base font-bold text-slate-700 border-2 border-slate-200 hover:border-blue-600 hover:text-blue-600 hover:bg-blue-50 transition-all"
             >
               Login
             </Link>
             <Link
               href="/sign-up"
-              className="px-5 py-2 rounded-full text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg transition-all"
+              className="px-6 py-2.5 rounded-full text-base font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
             >
               Sign Up
             </Link>
@@ -224,12 +222,12 @@ export default function NavbarClient({ user: initialUser }) {
       </div>
 
       {/* --- MOBILE TOGGLE --- */}
-      <div className="sm:hidden flex items-center gap-4">
+      <div className="md:hidden flex items-center gap-4">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="text-blue-900 hover:text-blue-700 transition"
+          className="text-slate-800 hover:text-blue-600 transition p-1"
         >
-          {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          {isOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
         </button>
       </div>
 
@@ -237,34 +235,36 @@ export default function NavbarClient({ user: initialUser }) {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="sm:hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-md px-6 pb-6 shadow-xl border-t border-gray-100 z-40"
+            className="md:hidden absolute top-full left-0 right-0 bg-white/98 backdrop-blur-xl px-6 pb-8 shadow-2xl border-t border-slate-100 z-40 h-screen"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
           >
-            <div className="space-y-2 mt-4">
+            <div className="space-y-3 mt-6">
               {navItems.map((item) => (
                 <Link
                   key={item.name}
                   href={item.path}
                   onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                  className="flex items-center gap-4 p-4 rounded-xl text-lg font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                 >
                   {item.icon} {item.name}
                 </Link>
               ))}
             </div>
 
-            <div className="mt-6 border-t border-gray-200 pt-4">
+            <div className="mt-8 border-t border-slate-200 pt-6">
               {user ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 mb-4 px-2">
-                    <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 mb-6 bg-slate-50 p-4 rounded-2xl">
+                    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xl">
                       {user.firstName?.[0]?.toUpperCase() || "U"}
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900">{user.name}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="font-bold text-lg text-slate-900">
+                        {user.name}
+                      </p>
+                      <p className="text-sm text-slate-500 font-medium">
                         {user.email || user.phoneNumber}
                       </p>
                     </div>
@@ -272,37 +272,37 @@ export default function NavbarClient({ user: initialUser }) {
                   <Link
                     href="/dashboard"
                     onClick={() => setIsOpen(false)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-semibold"
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-xl text-lg font-bold shadow-lg active:scale-95 transition-transform"
                   >
-                    <LayoutDashboard className="w-4 h-4" /> Dashboard
+                    <LayoutDashboard className="w-5 h-5" /> Dashboard
                   </Link>
                   <Link
                     href="/profile"
                     onClick={() => setIsOpen(false)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200"
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-slate-100 text-slate-700 rounded-xl text-lg font-bold hover:bg-slate-200"
                   >
-                    <UserIcon className="w-4 h-4" /> My Profile
+                    <UserIcon className="w-5 h-5" /> My Profile
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-semibold hover:bg-red-100"
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-red-50 text-red-600 rounded-xl text-lg font-bold hover:bg-red-100"
                   >
-                    <LogOut className="w-4 h-4" /> Sign Out
+                    <LogOut className="w-5 h-5" /> Sign Out
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-4">
                   <Link
                     href="/sign-in"
                     onClick={() => setIsOpen(false)}
-                    className="flex justify-center px-4 py-3 rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-50"
+                    className="flex justify-center px-6 py-4 rounded-xl border-2 border-slate-200 text-slate-700 text-lg font-bold hover:bg-slate-50"
                   >
                     Login
                   </Link>
                   <Link
                     href="/sign-up"
                     onClick={() => setIsOpen(false)}
-                    className="flex justify-center px-4 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700"
+                    className="flex justify-center px-6 py-4 rounded-xl bg-blue-600 text-white text-lg font-bold shadow-lg hover:bg-blue-700"
                   >
                     Sign Up
                   </Link>

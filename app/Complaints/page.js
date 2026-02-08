@@ -1,7 +1,8 @@
 "use client";
 
+
 import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+// 2. REMOVED: import { useUser } from "@clerk/nextjs"; <--- This was crashing your build
 import { toast } from "react-hot-toast";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +19,8 @@ import {
 } from "@/components/ui/select";
 
 export default function ComplaintPage() {
-  const { user } = useUser();
+  // 3. REMOVED: const { user } = useUser(); <--- This was also crashing it
+
   const [societyName, setSocietyName] = useState("");
   const [form, setForm] = useState({
     title: "",
@@ -29,6 +31,7 @@ export default function ComplaintPage() {
   useEffect(() => {
     const fetchSociety = async () => {
       try {
+        // This API call now uses your custom Cookies, not Clerk.
         const res = await fetch("/api/users/me");
         const data = await res.json();
 
@@ -40,7 +43,8 @@ export default function ComplaintPage() {
         if (data?.society?.name) {
           setSocietyName(data.society.name);
         } else {
-          toast.error("No society data found");
+          // Optional: You can silence this if you want
+          // toast.error("No society data found");
         }
       } catch {
         toast.error("Failed to load society information");
