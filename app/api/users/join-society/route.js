@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/prisma"; // ✅ Use the singleton client
+import { db } from "@/lib/prisma";
 import { checkUser } from "@/lib/checkUser";
 
 export async function POST(req) {
@@ -8,11 +8,11 @@ export async function POST(req) {
     const me = await checkUser();
     if (!me) return new NextResponse("Unauthorized", { status: 401 });
 
-    // ✅ Extract 'vehicles' array from request body
+    // ✅ Extract fields including the new 'vehicles' array
     const { societyId, role, phoneNumber, buildingId, flatId, vehicles } =
       await req.json();
 
-    // 2. Check for existing pending request
+    // 2. Check for existing pending request to avoid duplicates
     const exist = await db.pendingAccess.findUnique({
       where: { userId: me.id },
     });
@@ -24,7 +24,7 @@ export async function POST(req) {
       );
     }
 
-    // 3. ✅ Update User's Phone Number (Sync profile)
+    // 3. ✅ Update User's Phone Number (Sync profile) if provided
     if (phoneNumber) {
       await db.user.update({
         where: { id: me.id },
@@ -33,12 +33,14 @@ export async function POST(req) {
     }
 
     // 4. Create Access Request
+    // Note: Since PendingAccess doesn't have relations to Building/Flat in schema,
+    // we store the IDs. The Admin API will need to fetch names based on these IDs.
     await db.pendingAccess.create({
       data: {
         userId: me.id,
         societyId,
         requestedRole: role,
-        phoneNumber, // Snapshot for the request
+        phoneNumber,
         buildingId: buildingId || null,
         flatId: flatId || null,
       },
@@ -46,31 +48,33 @@ export async function POST(req) {
 
     // 5. ✅ Handle Vehicle Registration
     if (vehicles && Array.isArray(vehicles) && vehicles.length > 0) {
-      for (const v of vehicles) {
-        // Basic validation
-        if (!v.number) continue;
+      // We use Promise.all to process them in parallel for speed
+      await Promise.all(
+        vehicles.map(async (v) => {
+          if (!v.number) return;
 
-        // Standardize format: Uppercase, no spaces (e.g., "mp07 ab 1234" -> "MP07AB1234")
-        const cleanNumber = v.number.toUpperCase().replace(/\s/g, "");
+          // Standardize: "MP 07 AB 1234" -> "MP07AB1234"
+          const cleanNumber = v.number.toUpperCase().replace(/\s/g, "");
 
-        // Check if vehicle already exists to prevent duplicate errors
-        const existingVehicle = await db.vehicle.findUnique({
-          where: { number: cleanNumber },
-        });
-
-        if (!existingVehicle) {
-          await db.vehicle.create({
-            data: {
-              number: cleanNumber,
-              type: v.type, // 'TWO_WHEELER' or 'FOUR_WHEELER'
-              userId: me.id,
-            },
+          // Check if vehicle already exists
+          const existingVehicle = await db.vehicle.findUnique({
+            where: { number: cleanNumber },
           });
-        } else {
-          // Optional: If vehicle exists but is claimed by someone else, you might want to log it
-          console.log(`Vehicle ${cleanNumber} already registered.`);
-        }
-      }
+
+          // Only create if it doesn't exist.
+          // (Note: In your current schema, a vehicle belongs to ONE user.
+          // If it exists, we skip linking to avoid errors.)
+          if (!existingVehicle) {
+            await db.vehicle.create({
+              data: {
+                number: cleanNumber,
+                type: v.type, // 'TWO_WHEELER', 'FOUR_WHEELER', 'OTHER'
+                userId: me.id,
+              },
+            });
+          }
+        }),
+      );
     }
 
     return NextResponse.json({ message: "OK" });

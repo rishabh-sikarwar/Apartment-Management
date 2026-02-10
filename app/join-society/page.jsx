@@ -12,44 +12,49 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Car, Bike, CheckCircle2, XCircle } from "lucide-react"; // Icons
-
-/* ──────────────────────────────── */
+import {
+  Car,
+  Bike,
+  Plus,
+  Trash2,
+  Building,
+  User,
+  Phone,
+  ShieldCheck,
+} from "lucide-react";
 
 export default function JoinSociety() {
-  /* form state */
+  /* ─── STATE MANAGEMENT ─── */
   const [societyId, setSocietyId] = useState("");
   const [role, setRole] = useState("SOCIETY_MEMBER");
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState("");
 
-  // Building/Flat
+  // Location State
   const [buildingId, setBuildingId] = useState("");
   const [flatId, setFlatId] = useState("");
 
-  // ✅ Vehicle State
-  const [hasVehicle, setHasVehicle] = useState("no"); // 'yes' or 'no'
-  const [twoWheelerCount, setTwoWheelerCount] = useState(0);
-  const [fourWheelerCount, setFourWheelerCount] = useState(0);
-  // Stores vehicle numbers: { "2w_0": "MP04...", "4w_0": "DL01..." }
-  const [vehicleNumbers, setVehicleNumbers] = useState({});
+  // Vehicle State
+  const [hasVehicle, setHasVehicle] = useState("no");
+  const [vehicleList, setVehicleList] = useState([]);
+  const [currentVehicleType, setCurrentVehicleType] = useState("TWO_WHEELER");
+  const [currentVehicleNumber, setCurrentVehicleNumber] = useState("");
 
   const [loading, setLoading] = useState(false);
 
-  /* dropdown data */
+  // Dropdown Data
   const [societies, setSocieties] = useState([]);
   const [buildings, setBuildings] = useState([]);
   const [flats, setFlats] = useState([]);
 
-  /* ─── load societies once ─── */
+  /* ─── DATA FETCHING ─── */
   useEffect(() => {
     fetch("/api/public/societies")
       .then((r) => r.json())
       .then((d) => setSocieties(d.societies))
-      .catch(() => toast.error("Load societies failed"));
+      .catch(() => toast.error("Failed to load societies"));
   }, []);
 
-  /* ─── load buildings ─── */
   useEffect(() => {
     if (!societyId) {
       setBuildings([]);
@@ -59,10 +64,9 @@ export default function JoinSociety() {
     fetch(`/api/public/buildings?societyId=${societyId}`)
       .then((r) => r.json())
       .then((d) => setBuildings(d.buildings))
-      .catch(() => toast.error("Load buildings failed"));
+      .catch(() => toast.error("Failed to load buildings"));
   }, [societyId]);
 
-  /* ─── load flats ─── */
   useEffect(() => {
     if (!buildingId) {
       setFlats([]);
@@ -72,51 +76,47 @@ export default function JoinSociety() {
     fetch(`/api/public/flats?buildingId=${buildingId}`)
       .then((r) => r.json())
       .then((d) => setFlats(d.flats))
-      .catch(() => toast.error("Load flats failed"));
+      .catch(() => toast.error("Failed to load flats"));
   }, [buildingId]);
 
-  /* ───────────────────────────── Helper to handle vehicle inputs */
-  const handleVehicleNumChange = (key, value) => {
-    setVehicleNumbers((prev) => ({ ...prev, [key]: value.toUpperCase() }));
+  /* ─── HANDLERS ─── */
+  const handleAddVehicle = () => {
+    if (!currentVehicleNumber.trim())
+      return toast.error("Please enter a vehicle number");
+    if (currentVehicleNumber.length < 4)
+      return toast.error("Vehicle number is too short");
+
+    const formattedNumber = currentVehicleNumber
+      .toUpperCase()
+      .replace(/\s/g, "");
+    const exists = vehicleList.some((v) => v.number === formattedNumber);
+    if (exists) return toast.error("Vehicle already added to list");
+
+    setVehicleList((prev) => [
+      ...prev,
+      { type: currentVehicleType, number: formattedNumber },
+    ]);
+    setCurrentVehicleNumber("");
+    toast.success("Vehicle added");
   };
 
-  /* ───────────────────────────── submit */
+  const handleRemoveVehicle = (index) => {
+    setVehicleList((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const submit = async () => {
-    if (!societyId) return toast.error("Choose a society first");
-    if (!phone.trim()) return toast.error("Mobile number required");
+    if (!societyId) return toast.error("Please select a society");
+    if (!phone.trim()) return toast.error("Mobile number is required");
 
     const phoneRegex = /^[6-9]\d{9}$/;
-    if (!phoneRegex.test(phone)) {
-      return toast.error("Enter valid 10-digit mobile number");
-    }
+    if (!phoneRegex.test(phone))
+      return toast.error("Invalid mobile number format");
 
     if (
       ["HOUSE_OWNER", "SOCIETY_MEMBER", "TENANT", "RESIDENT"].includes(role) &&
       !flatId
-    )
-      return toast.error("Select building and flat");
-
-    // ✅ Prepare Vehicle Data
-    let finalVehicles = [];
-    if (hasVehicle === "yes") {
-      // Validate 2-Wheelers
-      for (let i = 0; i < twoWheelerCount; i++) {
-        const num = vehicleNumbers[`2w_${i}`];
-        if (!num || num.length < 4)
-          return toast.error(
-            `Please enter valid number for 2-Wheeler #${i + 1}`,
-          );
-        finalVehicles.push({ type: "TWO_WHEELER", number: num });
-      }
-      // Validate 4-Wheelers
-      for (let i = 0; i < fourWheelerCount; i++) {
-        const num = vehicleNumbers[`4w_${i}`];
-        if (!num || num.length < 4)
-          return toast.error(
-            `Please enter valid number for 4-Wheeler #${i + 1}`,
-          );
-        finalVehicles.push({ type: "FOUR_WHEELER", number: num });
-      }
+    ) {
+      return toast.error("Please select your building and flat");
     }
 
     setLoading(true);
@@ -130,246 +130,280 @@ export default function JoinSociety() {
           phoneNumber: phone,
           buildingId,
           flatId,
-          vehicles: finalVehicles, // Send array
+          vehicles: hasVehicle === "yes" ? vehicleList : [],
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
-      toast.success("Request sent successfully!");
 
-      // Reset Form
+      if (!res.ok) throw new Error(await res.text());
+      toast.success("Request sent! Admin approval pending.");
+
+      // Reset
       setSocietyId("");
       setRole("SOCIETY_MEMBER");
       setPhone("");
       setBuildingId("");
       setFlatId("");
       setHasVehicle("no");
-      setTwoWheelerCount(0);
-      setFourWheelerCount(0);
-      setVehicleNumbers({});
+      setVehicleList([]);
     } catch (e) {
-      toast.error(e.message || "Error");
+      toast.error(e.message || "Failed to submit request");
     } finally {
       setLoading(false);
     }
   };
 
-  /* ───────────────────────────── UI */
+  /* ───────────────────────────── RENDER ─── */
   return (
-    <div className="max-w-lg mx-auto space-y-6 p-4 sm:p-6 bg-white shadow-sm rounded-xl border border-gray-100">
-      <h1 className="text-xl sm:text-2xl font-bold text-center text-gray-800">
-        Register in a Society
-      </h1>
-
-      {/* Society */}
-      <Field label="Choose Society">
-        <Select value={societyId} onValueChange={setSocietyId}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select…" />
-          </SelectTrigger>
-          <SelectContent>
-            {societies.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-
-      {/* Role */}
-      <Field label="Desired role">
-        <Select value={role} onValueChange={(val) => setRole(val)}>
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="HOUSE_OWNER">House Owner</SelectItem>
-            <SelectItem value="SOCIETY_MEMBER">Society Member</SelectItem>
-            <SelectItem value="TENANT">Tenant</SelectItem>
-            <SelectItem value="RESIDENT">Resident</SelectItem>
-            <SelectItem value="STAFF">Staff</SelectItem>
-            <SelectItem value="TECHNICIAN">Technician</SelectItem>
-            <SelectItem value="WATCHMAN">Watchman</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
-
-      {/* Phone */}
-      <Field label="Mobile number">
-        <Input
-          type="tel"
-          value={phone}
-          onChange={(e) => {
-            const value = e.target.value.replace(/\D/g, "");
-            if (value.length <= 10) {
-              setPhone(value);
-              setPhoneError("");
-              if (value.length === 10 && !/^[6-9]/.test(value)) {
-                setPhoneError("Mobile number must start with 6-9");
-              }
-            }
-          }}
-          placeholder="Enter 10-digit mobile number"
-          maxLength={10}
-          className={phoneError ? "border-red-500" : ""}
-        />
-        {phoneError && (
-          <p className="text-red-500 text-xs mt-1">{phoneError}</p>
-        )}
-      </Field>
-
-      {/* Building / Flat Selection */}
-      {["HOUSE_OWNER", "SOCIETY_MEMBER", "TENANT", "RESIDENT"].includes(
-        role,
-      ) && (
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Building">
-            <Select value={buildingId} onValueChange={setBuildingId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select..." />
-              </SelectTrigger>
-              <SelectContent>
-                {buildings.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-
-          <Field label="Flat">
-            <Select value={flatId} onValueChange={setFlatId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select..." />
-              </SelectTrigger>
-              <SelectContent>
-                {flats.map((f) => (
-                  <SelectItem key={f.id} value={f.id}>
-                    {f.flatNumber}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+    <div className="min-h-screen bg-gray-50/50 py-10 px-4 flex justify-center items-start">
+      <div className="w-full max-w-2xl bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="bg-slate-50/50 px-6 py-5 border-b border-slate-100">
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+            Join a Society
+          </h1>
+          <p className="text-slate-500 text-sm mt-1">
+            Submit your details to the admin for approval.
+          </p>
         </div>
-      )}
 
-      {/* ✅ VEHICLE INFORMATION SECTION */}
-      <div className="pt-4 border-t border-gray-100">
-        <Field label="Do you own vehicles?">
-          <Select value={hasVehicle} onValueChange={setHasVehicle}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="no">No, I don't have vehicles</SelectItem>
-              <SelectItem value="yes">Yes, I have vehicles</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
+        <div className="p-6 space-y-8">
+          {/* SECTION 1: BASIC DETAILS */}
+          <section className="space-y-4">
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-primary" /> Society & Role
+            </h2>
 
-        {hasVehicle === "yes" && (
-          <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2">
-            {/* Counts Row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-xs text-gray-500 flex items-center gap-1">
-                  <Bike className="w-3 h-3" /> Two Wheelers
-                </Label>
-                <Select
-                  value={String(twoWheelerCount)}
-                  onValueChange={(v) => setTwoWheelerCount(Number(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <Field label="Select Society">
+                <Select value={societyId} onValueChange={setSocietyId}>
+                  <SelectTrigger className="w-full h-10 border-slate-300 focus:ring-slate-400">
+                    <SelectValue placeholder="Search Society..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {[0, 1, 2, 3, 4].map((num) => (
-                      <SelectItem key={num} value={String(num)}>
-                        {num}
+                    {societies.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </Field>
 
-              <div className="space-y-2">
-                <Label className="text-xs text-gray-500 flex items-center gap-1">
-                  <Car className="w-3 h-3" /> Four Wheelers
-                </Label>
-                <Select
-                  value={String(fourWheelerCount)}
-                  onValueChange={(v) => setFourWheelerCount(Number(v))}
-                >
-                  <SelectTrigger>
+              <Field label="I am a...">
+                <Select value={role} onValueChange={setRole}>
+                  <SelectTrigger className="w-full h-10 border-slate-300 focus:ring-slate-400">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {[0, 1, 2, 3, 4].map((num) => (
-                      <SelectItem key={num} value={String(num)}>
-                        {num}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="HOUSE_OWNER">House Owner</SelectItem>
+                    <SelectItem value="SOCIETY_MEMBER">
+                      Society Member
+                    </SelectItem>
+                    <SelectItem value="TENANT">Tenant</SelectItem>
+                    <SelectItem value="RESIDENT">Resident</SelectItem>
+                    <SelectItem value="STAFF">Staff</SelectItem>
+                    <SelectItem value="TECHNICIAN">Technician</SelectItem>
+                    <SelectItem value="WATCHMAN">Watchman</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
+              </Field>
             </div>
 
-            {/* Dynamic Inputs for 2-Wheelers */}
-            {twoWheelerCount > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-gray-700">
-                  Two Wheeler Numbers
-                </p>
-                {Array.from({ length: twoWheelerCount }).map((_, i) => (
-                  <Input
-                    key={`2w_${i}`}
-                    placeholder={`e.g. MP07AB1234 (Bike ${i + 1})`}
-                    value={vehicleNumbers[`2w_${i}`] || ""}
-                    onChange={(e) =>
-                      handleVehicleNumChange(`2w_${i}`, e.target.value)
-                    }
-                    className="uppercase placeholder:normal-case"
-                  />
-                ))}
+            <Field label="Mobile Number">
+              <div className="relative">
+                <Phone className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    if (val.length <= 10) setPhone(val);
+                  }}
+                  placeholder="9876543210"
+                  className="pl-9 h-10 border-slate-300 focus:border-primary"
+                />
               </div>
-            )}
+            </Field>
+          </section>
 
-            {/* Dynamic Inputs for 4-Wheelers */}
-            {fourWheelerCount > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-gray-700">
-                  Four Wheeler Numbers
-                </p>
-                {Array.from({ length: fourWheelerCount }).map((_, i) => (
-                  <Input
-                    key={`4w_${i}`}
-                    placeholder={`e.g. MP07CA9999 (Car ${i + 1})`}
-                    value={vehicleNumbers[`4w_${i}`] || ""}
-                    onChange={(e) =>
-                      handleVehicleNumChange(`4w_${i}`, e.target.value)
-                    }
-                    className="uppercase placeholder:normal-case"
-                  />
-                ))}
+          <hr className="border-slate-100" />
+
+          {/* SECTION 2: RESIDENCE */}
+          {["HOUSE_OWNER", "SOCIETY_MEMBER", "TENANT", "RESIDENT"].includes(
+            role,
+          ) && (
+            <section className="space-y-4 animate-in fade-in slide-in-from-top-1">
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <Building className="w-4 h-4 text-primary" /> Residence Details
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <Field label="Building / Block">
+                  <Select value={buildingId} onValueChange={setBuildingId}>
+                    <SelectTrigger className="h-10 border-slate-300">
+                      <SelectValue placeholder="Select Building" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {buildings.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <Field label="Flat Number">
+                  <Select value={flatId} onValueChange={setFlatId}>
+                    <SelectTrigger className="h-10 border-slate-300">
+                      <SelectValue placeholder="Select Flat" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {flats.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.flatNumber}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+            </section>
+          )}
+
+          <hr className="border-slate-100" />
+
+          {/* SECTION 3: VEHICLES */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <Car className="w-4 h-4 text-primary" /> Vehicle Information
+              </h2>
+              <Select value={hasVehicle} onValueChange={setHasVehicle}>
+                <SelectTrigger className="w-[180px] h-8 text-xs bg-slate-50 border-slate-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no">No Vehicles</SelectItem>
+                  <SelectItem value="yes">I have Vehicles</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {hasVehicle === "yes" && (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 animate-in fade-in zoom-in-95">
+                {/* Add Vehicle Form */}
+                <div className="flex flex-col md:flex-row gap-3 items-end mb-4">
+                  <div className="w-full md:w-1/3 space-y-1.5">
+                    <Label className="text-xs font-medium text-slate-500">
+                      Type
+                    </Label>
+                    <Select
+                      value={currentVehicleType}
+                      onValueChange={setCurrentVehicleType}
+                    >
+                      <SelectTrigger className="bg-white h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="TWO_WHEELER">
+                          Bike / Scooter
+                        </SelectItem>
+                        <SelectItem value="FOUR_WHEELER">Car / SUV</SelectItem>
+                        <SelectItem value="OTHER">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-full md:w-1/2 space-y-1.5">
+                    <Label className="text-xs font-medium text-slate-500">
+                      Number Plate
+                    </Label>
+                    <Input
+                      value={currentVehicleNumber}
+                      onChange={(e) =>
+                        setCurrentVehicleNumber(e.target.value.toUpperCase())
+                      }
+                      placeholder="MP07AB1234"
+                      className="uppercase bg-white h-9"
+                    />
+                  </div>
+                  <Button
+                    onClick={handleAddVehicle}
+                    size="sm"
+                    className="w-full md:w-auto h-9 bg-slate-900 text-white hover:bg-slate-800"
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Add
+                  </Button>
+                </div>
+
+                {/* List */}
+                <div className="space-y-2">
+                  {vehicleList.length === 0 ? (
+                    <div className="text-center py-4 text-xs text-slate-400 border-t border-slate-200 border-dashed">
+                      No vehicles added yet. Use the form above.
+                    </div>
+                  ) : (
+                    vehicleList.map((v, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-md shadow-sm group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`p-1.5 rounded-full ${v.type === "TWO_WHEELER" ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-600"}`}
+                          >
+                            {v.type === "TWO_WHEELER" ? (
+                              <Bike className="w-4 h-4" />
+                            ) : (
+                              <Car className="w-4 h-4" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800">
+                              {v.number}
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-medium capitalize">
+                              {v.type.toLowerCase().replace("_", " ")}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveVehicle(i)}
+                          className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
+          </section>
+
+          {/* SUBMIT BUTTON */}
+          <div className="pt-2">
+            <Button
+              onClick={submit}
+              disabled={loading}
+              className="w-full h-11 text-base font-medium shadow-md transition-all hover:shadow-lg"
+            >
+              {loading ? "Submitting Request..." : "Submit Request"}
+            </Button>
           </div>
-        )}
+        </div>
       </div>
-
-      <Button onClick={submit} disabled={loading} className="w-full">
-        {loading ? "Submitting Request..." : "Submit Request"}
-      </Button>
     </div>
   );
 }
 
-/* helper component */
+/* Helper for consistent spacing */
 const Field = ({ label, children }) => (
   <div className="space-y-1.5">
-    <Label className="text-sm font-semibold text-gray-700">{label}</Label>
+    <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+      {label}
+    </Label>
     {children}
   </div>
 );
