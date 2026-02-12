@@ -1,19 +1,11 @@
-// app/api/staff/route.js
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/prisma";
+import { checkUser } from "@/lib/checkUser";
 
-// ───── Helpers ───────────────────────────────────────────────────
-async function currentUser() {
-  const { userId: clerkUserId } = await auth();
-  if (!clerkUserId) return null;
-  return db.user.findUnique({ where: { clerkUserId } });
-}
-
-// ───── POST /api/staff  (create) ─────────────────────────────────
+// ───── POST /api/staff (Create Staff) ─────────────────────────────────
 export async function POST(req) {
   try {
-    const user = await currentUser();
+    const user = await checkUser();
     if (!user)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -23,12 +15,14 @@ export async function POST(req) {
 
     const { name, role, salary, phoneNumber } = await req.json();
     if (!name || !role || salary === undefined || !phoneNumber)
-      return NextResponse.json({ error: "Missing fields. Name, role, salary, and phone number are required." }, { status: 400 });
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
-    // Validate phone number format
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(phoneNumber)) {
-      return NextResponse.json({ error: "Please enter a valid 10-digit mobile number starting with 6-9" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid phone number" },
+        { status: 400 },
+      );
     }
 
     const staff = await db.staff.create({
@@ -38,7 +32,7 @@ export async function POST(req) {
         salary: Number(salary),
         phoneNumber,
         societyId: user.societyId,
-        userId: user.id, // link creator
+        userId: user.id, // Linked to the creator
       },
     });
 
@@ -49,10 +43,10 @@ export async function POST(req) {
   }
 }
 
-// ───── GET /api/staff  (list by society) ────────────────────────
+// ───── GET /api/staff (List Staff) ────────────────────────
 export async function GET() {
   try {
-    const user = await currentUser();
+    const user = await checkUser();
     if (!user)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

@@ -1,23 +1,45 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useUser, useAuth, SignIn } from '@clerk/nextjs';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 export default function NoticeBoard() {
-  const { user, isSignedIn } = useUser();
-  const { getToken, signOut } = useAuth();
   const router = useRouter();
+
+  // Custom Auth State
+  const [user, setUser] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const ADMIN_EMAILS = ["rishabhsikarwar1000@gmail.com"]; // Add more if needed
-const isAdmin = ADMIN_EMAILS.includes(user?.emailAddresses[0].emailAddress);
+  // Check Custom Auth
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const res = await fetch("/api/users/me");
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data);
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        setUser(null);
+      } finally {
+        setLoadingAuth(false);
+      }
+    }
+    checkAuth();
+  }, []);
+
+  const isAdmin =
+    user?.role === "SUPER_ADMIN" || user?.role === "SOCIETY_ADMIN";
 
   useEffect(() => {
     fetchNotices();
@@ -26,9 +48,9 @@ const isAdmin = ADMIN_EMAILS.includes(user?.emailAddresses[0].emailAddress);
   async function fetchNotices() {
     setLoading(true);
     try {
-      const res = await fetch('/api/notice-board');
+      const res = await fetch("/api/notice-board");
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch notices');
+      if (!res.ok) throw new Error(data.error || "Failed to fetch notices");
       setNotices(data);
     } catch (err) {
       setError(err.message);
@@ -39,38 +61,38 @@ const isAdmin = ADMIN_EMAILS.includes(user?.emailAddresses[0].emailAddress);
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!user) return;
+
     setSubmitting(true);
     setError(null);
 
     try {
-      const token = await getToken();
-
-      const res = await fetch('/api/notice-board', {
-        method: editingId ? 'PUT' : 'POST',
+      const res = await fetch("/api/notice-board", {
+        method: editingId ? "PUT" : "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           id: editingId,
           content,
-          postedBy: user.fullName || user.emailAddresses[0].emailAddress,
+          // Use custom user data
+          postedBy: user.firstName || user.email || "Unknown",
         }),
       });
 
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error || 'Failed to post');
+      if (!res.ok) throw new Error(result.error || "Failed to post");
 
       if (editingId) {
         setNotices((prev) =>
-          prev.map((n) => (n.id === result.id ? result : n))
+          prev.map((n) => (n.id === result.id ? result : n)),
         );
         setEditingId(null);
       } else {
         setNotices((prev) => [result, ...prev]);
       }
 
-      setContent('');
+      setContent("");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -79,21 +101,17 @@ const isAdmin = ADMIN_EMAILS.includes(user?.emailAddresses[0].emailAddress);
   }
 
   async function handleDelete(id) {
-    if (!confirm('Are you sure you want to delete this notice?')) return;
+    if (!confirm("Are you sure you want to delete this notice?")) return;
 
     try {
-      const token = await getToken();
-      const res = await fetch('/api/notice-board', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+      const res = await fetch("/api/notice-board", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
 
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error || 'Failed to delete');
+      if (!res.ok) throw new Error(result.error || "Failed to delete");
 
       setNotices((prev) => prev.filter((n) => n.id !== id));
     } catch (err) {
@@ -101,11 +119,26 @@ const isAdmin = ADMIN_EMAILS.includes(user?.emailAddresses[0].emailAddress);
     }
   }
 
-  if (!isSignedIn) {
+  if (loadingAuth) {
     return (
-      <div className="p-6 max-w-xl mx-auto">
-        <h1 className="text-2xl font-bold mb-4">Join a Society to View Notices</h1>
-        <SignIn path="/notice-board" routing="path" />
+      <div className="p-6 flex justify-center">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="p-6 max-w-xl mx-auto text-center">
+        <h1 className="text-2xl font-bold mb-4">
+          Join a Society to View Notices
+        </h1>
+        <button
+          onClick={() => router.push("/sign-in")}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          Sign In
+        </button>
       </div>
     );
   }
@@ -114,7 +147,6 @@ const isAdmin = ADMIN_EMAILS.includes(user?.emailAddresses[0].emailAddress);
     <div className="p-6 max-w-xl mx-auto">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">Notice Board</h1>
-       
       </div>
 
       {isAdmin && (
@@ -134,11 +166,11 @@ const isAdmin = ADMIN_EMAILS.includes(user?.emailAddresses[0].emailAddress);
           >
             {submitting
               ? editingId
-                ? 'Updating...'
-                : 'Posting...'
+                ? "Updating..."
+                : "Posting..."
               : editingId
-              ? 'Update Notice'
-              : 'Post Notice'}
+                ? "Update Notice"
+                : "Post Notice"}
           </button>
         </form>
       )}
@@ -154,14 +186,12 @@ const isAdmin = ADMIN_EMAILS.includes(user?.emailAddresses[0].emailAddress);
           {notices.map((notice) => (
             <li key={notice.id} className="border p-3 rounded bg-white shadow">
               <p className="text-gray-800">{notice.content}</p>
-
-            <p className="text-xs text-gray-500">
-  Posted by <strong>{notice.posted_by}</strong>{' '}
-  {ADMIN_EMAILS.includes(notice.posted_by_email) && (
-    <span className="text-yellow-600 font-semibold ml-1">🔧 Admin</span>
-  )}
-  on {new Date(notice.created_at).toLocaleString()}
-</p>
+              <p className="text-xs text-gray-500">
+                Posted by <strong>{notice.postedBy || "Admin"}</strong> on{" "}
+                {new Date(
+                  notice.postedAt || notice.created_at,
+                ).toLocaleString()}
+              </p>
 
               {isAdmin && (
                 <div className="flex gap-4 mt-2 text-sm">

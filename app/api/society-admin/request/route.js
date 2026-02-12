@@ -1,56 +1,46 @@
 import { db } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { checkUser } from "@/lib/checkUser";
 
 export async function POST(req) {
   try {
-    const { userId } = await auth();
-
-    if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-
-    const loggedInUser = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
-
-    if (!loggedInUser) {
-      return new NextResponse("User not found", { status: 404 });
-    }
+    const user = await checkUser();
+    if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
     const body = await req.json();
 
+    // Check if user already has a pending request
     const existing = await db.pendingAdmin.findFirst({
-      where: { email: loggedInUser.email },
+      where: { appliedByUserId: user.id }, // Use relational check
     });
 
     if (existing) {
       return NextResponse.json(
-        { error: "Admin request already exists." },
-        { status: 400 }
+        { error: "Request already exists." },
+        { status: 400 },
       );
     }
 
     const pendingAdmin = await db.pendingAdmin.create({
       data: {
-        name: loggedInUser.firstName + " " + loggedInUser.lastName,
-        email: loggedInUser.email,
-        phoneNumber: loggedInUser.phoneNumber || body.phoneNumber,
+        name: user.firstName + " " + user.lastName,
+        email: user.email,
+        phoneNumber: user.phoneNumber || body.phoneNumber,
         address: body.address,
         registrationNumber: body.registrationNumber,
         apartmentName: body.apartmentName,
         totalFlats: parseInt(body.totalFlats),
         status: "PENDING",
-        quotedAmount: null,
-        appliedByUserId: loggedInUser.id, // Link to the user who applied
+        appliedByUserId: user.id, // Link to the user
       },
     });
 
     return NextResponse.json({
-      message: "Callback request created successfully.",
+      message: "Request created successfully.",
       pendingAdmin,
     });
   } catch (error) {
+    console.error(error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

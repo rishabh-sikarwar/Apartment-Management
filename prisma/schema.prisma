@@ -1,28 +1,40 @@
 generator client {
   provider = "prisma-client-js"
+  // "native" is for your local Windows. The others are for the cPanel Linux server.
+  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider  = "mysql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
   id               String             @id @default(cuid())
-  clerkUserId      String             @unique
+  // Removed clerkUserId - we now rely on 'id' as the main identifier
   firstName        String?
   lastName         String?
-  email            String             @unique
-  phoneNumber      String?
-  role             Role?              @default(VISITOR)
+  email            String?            @unique // Made optional if user signs up via Phone
+  phoneNumber      String?            @unique // Made optional if user signs up via Email
+  password         String?            // Hashed password (optional if we allow OTP-only login)
+  role             Role               @default(VISITOR)
   profilePicture   String?
+  paymentQrUrl     String?
   isActive         Boolean            @default(true)
+  isVerified       Boolean            @default(false) // For OTP verification status
+  vehicles         Vehicle[]
+  
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+  
   societyId        String?
   buildingId       String?
-  name             String?
+  name             String?            // Can be combined firstnName + lastName
+
+  otpSessions      Otp[]              // Relation to OTP table
+  resetToken       String?    @unique
+  resetTokenExpiry DateTime?
+
   bookings         Booking[]
   complaints       Complaint[]
   documents        Document[]
@@ -45,6 +57,23 @@ model User {
   pendingAdmins    PendingAdmin[]
 
   @@map("users")
+}
+
+// ✅ NEW MODEL: Handles OTPs for Login/Signup
+model Otp {
+  id        String   @id @default(cuid())
+  code      String   // The 6 digit code
+  expiresAt DateTime
+  
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  
+  sentTo    String   // The email or phone number it was sent to
+  type      OtpType  // EMAIL or PHONE
+  
+  createdAt DateTime @default(now())
+
+  @@map("otps")
 }
 
 model Society {
@@ -133,6 +162,19 @@ model Flat {
   visitors     Visitor[]
 
   @@map("flats")
+}
+
+model Vehicle {
+  id        String      @id @default(cuid())
+  number    String      @unique // Ensures searching by number works perfectly
+  type      VehicleType
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@map("vehicles")
 }
 
 model Visitor {
@@ -252,7 +294,7 @@ model Document {
 model Poll {
   id        String   @id @default(cuid())
   question  String
-  options   String[]
+  options   String   @db.Text
   userId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -385,50 +427,32 @@ model Transaction {
 model PaymentLog {
   id String @id @default(cuid())
 
-  /**
-   * Razorpay’s order_id  — returned from /v1/orders
-   */
+  /// Razorpay’s order_id — returned from /v1/orders
   rzOrderId String @unique @map("rz_order_id")
 
-  /**
-   * Razorpay’s payment_id — sent back in the checkout callback
-   */
+  /// Razorpay’s payment_id — sent back in the checkout callback
   rzPaymentId String? @unique @map("rz_payment_id")
 
-  /**
-   * HMAC signature we verify on the backend
-   */
+  /// HMAC signature we verify on the backend
   rzSignature String? @map("rz_signature")
 
-  /**
-   * CREATED  →  PAID  →  FAILED / REFUNDED …
-   */
+  /// CREATED → PAID → FAILED / REFUNDED …
   status PaymentStatus @default(CREATED)
 
-  /**
-   * Amount in paise (₹99.00 == 9900) to match Razorpay
-   */
+  /// Amount in paise (₹99.00 == 9900) to match Razorpay
   amount Int
 
-  /**
-   * Human readable ₹ value (redundant but handy in dashboards)
-   */
+  /// Human readable ₹ value (redundant but handy in dashboards)
   amountDisplay String @map("amount_display")
 
-  /**
-   * Friendly label — “Society Subscription”, “Maintenance 2025-02” …
-   */
+  /// Friendly label — “Society Subscription”, “Maintenance 2025-02” …
   purpose String
 
-  /**
-   * Links to the user who paid (Clerk ID stored in `userId`)
-   */
+  /// Links to the user who paid (Clerk ID stored in `userId`)
   userId String
   user   User   @relation(fields: [userId], references: [id])
 
-  /**
-   * Optional link to the PendingAdmin request you create right after payment
-   */
+  /// Optional link to the PendingAdmin request you create right after payment
   pendingAdminId String?       @map("pending_admin_id")
   pendingAdmin   PendingAdmin? @relation(fields: [pendingAdminId], references: [id])
 
@@ -556,6 +580,12 @@ model EntryLog {
   @@index([outTime])
 }
 
+
+enum OtpType {
+  EMAIL
+  PHONE
+}
+
 /// New enum to classify the person being logged
 enum EntryType {
   RESIDENT
@@ -647,4 +677,10 @@ enum PaymentMethod {
 enum staffRole {
   ACTIVE 
   NON_ACTIVE
+}
+
+enum VehicleType {
+  TWO_WHEELER
+  FOUR_WHEELER
+  OTHER
 }

@@ -1,80 +1,43 @@
-// app/Accounting/page.js
-// This file contains the complete code for the Society Accounting Page.
-// It integrates with Clerk for authentication and uses Next.js API Routes for data persistence.
-// All components (MessageModal, AddExpenseForm, AddPaymentForm, MemberReceiptCard) are defined within this single file.
-
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, use } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import RoleGuard from '@/components/RoleGuard';
-import domtoimage from "dom-to-image-more";
-import { jsPDF } from "jspdf";
-
-
-
-// Clerk client-side hooks for authentication status and user details
-import { useAuth, useUser } from '@clerk/nextjs';
-
-// Lucide React icons for UI elements and feedback
+import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast"; // ✅ Import React Hot Toast
 import {
-  BarChart3, Banknote, FileText, ClipboardList, PieChart, TrendingUp, Receipt,
-  XCircle, CheckCircle, Loader2, LogOut,
+  BarChart3,
+  Banknote,
+  FileText,
+  ClipboardList,
+  PieChart,
+  TrendingUp,
+  Receipt,
+  Loader2,
+  LogOut,
 } from "lucide-react";
 
-// Recharts components for data visualization (charts)
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
+// Recharts components
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from "recharts";
 
-// Note: Removed direct import of supabase from '@/lib/supabaseClient' as it's not used directly for auth logic here.
-// Clerk's signOut() handles the session clearing.
+// FORCE DYNAMIC (Important for build)
+export const dynamic = "force-dynamic";
 
-
-// --- Component: MessageModal (Defined Locally) ---
-// A custom modal component to display success or error messages to the user.
-// This provides a much better user experience than native browser 'alert()'.
-const MessageModal = ({ message, type, onClose }) => {
-  if (!message) return null; // Don't render if there's no message to display
-
-  const isSuccess = type === "success";
-  const bgColor = isSuccess ? "bg-green-100" : "bg-red-100";
-  const textColor = isSuccess ? "text-green-800" : "text-red-800";
-  const icon = isSuccess ? <CheckCircle className="w-6 h-6 text-green-500" /> : <XCircle className="w-6 h-6 text-red-500" />;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className={`${bgColor} ${textColor} p-6 rounded-lg shadow-xl max-w-sm w-full relative`}>
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-          aria-label="Close message"
-        >
-          <XCircle className="w-6 h-6" />
-        </button>
-        <div className="flex items-center space-x-3 mb-4">
-          {icon}
-          <h3 className="font-bold text-lg">{isSuccess ? "Success!" : "Error!"}</h3>
-        </div>
-        <p className="text-sm">{message}</p>
-        <div className="mt-4 text-right">
-          <button
-            onClick={onClose}
-            className={`px-4 py-2 rounded-md font-medium ${isSuccess ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"} text-white transition-colors`}
-          >
-            OK
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// --- Component: AddExpenseForm (Defined Locally) ---
-function AddExpenseForm({ onSubmit, showMessage, userEmail }) {
+// --- Component: AddExpenseForm ---
+function AddExpenseForm({ onSubmit, userEmail }) {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
-  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [transactionDate, setTransactionDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
   const [paymentMethod, setPaymentMethod] = useState("Cash");
 
   // Conditional fields
@@ -86,31 +49,31 @@ function AddExpenseForm({ onSubmit, showMessage, userEmail }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!amount || !category || !description || !transactionDate || !paymentMethod) {
-      showMessage("Please fill in all expense details.", "error");
+
+    // Basic Validation
+    if (
+      !amount ||
+      !category ||
+      !description ||
+      !transactionDate ||
+      !paymentMethod
+    ) {
+      toast.error("Please fill in all required fields.");
       return;
     }
 
-    // Conditional validation
-    if (paymentMethod === "Cheque" && !chequeNumber) {
-      showMessage("Please enter cheque number.", "error");
-      return;
-    }
-    if (paymentMethod === "Bank Transfer" && !bankName) {
-      showMessage("Please enter bank name.", "error");
-      if (!ifscCode || !transactionId) {
-        showMessage("Please provide IFSC Code and Transaction ID for Bank Transfer.", "error");
-        return;
-      }
-    }
-    if (paymentMethod === "Online Payment" && !transactionId) {
-      showMessage("Please enter transaction ID.", "error");
-      return;
-    }
-    if (paymentMethod === "UPI" && !upiId && !transactionId) {
-      showMessage("Please enter UPI ID.", "error");
-      return;
-    }
+    // Conditional Validation
+    if (paymentMethod === "Cheque" && !chequeNumber)
+      return toast.error("Please enter cheque number.");
+    if (
+      paymentMethod === "Bank Transfer" &&
+      (!bankName || !ifscCode || !transactionId)
+    )
+      return toast.error("Please enter Bank Name, IFSC, and Transaction ID.");
+    if (paymentMethod === "Online Payment" && !transactionId)
+      return toast.error("Please enter Transaction ID.");
+    if (paymentMethod === "UPI" && !upiId && !transactionId)
+      return toast.error("Please enter UPI ID or Transaction ID.");
 
     try {
       await onSubmit({
@@ -119,24 +82,21 @@ function AddExpenseForm({ onSubmit, showMessage, userEmail }) {
         description,
         transactionDate,
         paymentMethod,
-        chequeNumber: paymentMethod === "Cheque" ? chequeNumber : null,
-        bankName: paymentMethod === "Bank Transfer" ? bankName : null,
-        transactionId: paymentMethod === "Online Payment" ? transactionId : null,
-        transactionId: paymentMethod === "Bank Transfer" ? transactionId : null,
-        transactionId: paymentMethod === "UPI" ? transactionId : null,
-        ifscCode: paymentMethod === "Bank Transfer" ? ifscCode : null,
-        upiId: paymentMethod === "UPI" ? upiId : null,
+        chequeNumber,
+        bankName,
+        transactionId,
+        ifscCode,
+        upiId,
         type: "EXPENSE",
         email: userEmail,
       });
 
-      showMessage("Expense added successfully!", "success");
+      toast.success("Expense added successfully!");
 
-      // Reset all fields
+      // Reset Form
       setAmount("");
       setCategory("");
       setDescription("");
-      setTransactionDate(new Date().toISOString().slice(0, 10));
       setPaymentMethod("Cash");
       setChequeNumber("");
       setBankName("");
@@ -144,66 +104,62 @@ function AddExpenseForm({ onSubmit, showMessage, userEmail }) {
       setIfscCode("");
       setUpiId("");
     } catch (error) {
-      console.error("Error adding expense:", error);
-      showMessage("Failed to add expense. Please try again.", "error");
+      console.error(error);
+      toast.error("Failed to add expense. Please try again.");
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="expense-amount" className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Amount
+        </label>
         <input
-  id="amount"
-  type="text"
-  inputMode="numeric"
-  pattern="^\d+(\.\d{0,2})?$" // allows decimals up to 2 places
-  value={amount}
-  onChange={(e) => {
-    const value = e.target.value;
-    if (/^\d*\.?\d{0,2}$/.test(value)) {
-      setAmount(value);
-    }
-  }}
-  placeholder="e.g., 2500"
-  className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-  required
-/>
-      </div>
-
-      <div>
-        <label htmlFor="expense-category" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-        <input
-          id="expense-category"
-          type="text"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          placeholder="e.g., Repairs, Electricity"
-          className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
+          type="number"
+          placeholder="e.g. 1500"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500 outline-none"
           required
         />
       </div>
 
       <div>
-        <label htmlFor="expense-date" className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Category
+        </label>
         <input
-          id="expense-date"
+          type="text"
+          placeholder="e.g. Repairs"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500 outline-none"
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Date
+        </label>
+        <input
           type="date"
           value={transactionDate}
           onChange={(e) => setTransactionDate(e.target.value)}
-          className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
+          className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500 outline-none"
           required
         />
       </div>
 
       <div>
-        <label htmlFor="payment-method" className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Payment Method
+        </label>
         <select
-          id="payment-method"
           value={paymentMethod}
           onChange={(e) => setPaymentMethod(e.target.value)}
-          className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-          required
+          className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500 outline-none"
         >
           <option value="Cash">Cash</option>
           <option value="Bank Transfer">Bank Transfer</option>
@@ -213,112 +169,84 @@ function AddExpenseForm({ onSubmit, showMessage, userEmail }) {
         </select>
       </div>
 
+      {/* Conditional Inputs */}
       {paymentMethod === "Cheque" && (
-        <div>
-          <label htmlFor="cheque-number" className="block text-sm font-medium text-gray-700 mb-1">Cheque Number</label>
-          <input
-            id="cheque-number"
-            type="text"
-            value={chequeNumber}
-            onChange={(e) => setChequeNumber(e.target.value)}
-            placeholder="e.g., 123456"
-            className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
-        </div>
+        <input
+          type="text"
+          placeholder="Cheque Number"
+          value={chequeNumber}
+          onChange={(e) => setChequeNumber(e.target.value)}
+          className="border p-2 rounded w-full"
+          required
+        />
       )}
-
       {paymentMethod === "Bank Transfer" && (
-        <div>
-          <label htmlFor="bank-name" className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+        <div className="space-y-2">
           <input
-            id="bank-name"
             type="text"
+            placeholder="Bank Name"
             value={bankName}
             onChange={(e) => setBankName(e.target.value)}
-            placeholder="e.g., HDFC Bank"
-            className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
+            className="border p-2 rounded w-full"
             required
           />
-          <label htmlFor="ifsc-code-exp" className="block text-sm font-medium text-gray-700 mb-1">IFSC Code</label>
           <input
-          id="ifsc-code-exp"
-          type="text"
-          value={ifscCode}
-          onChange={(e) => setIfscCode(e.target.value)}
-          placeholder="e.g., SBIN0001234"
-           className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-           required
-           />
-           <label htmlFor="txn-id-exp" className="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
-           <input
-           id="txn-id-exp"
             type="text"
+            placeholder="IFSC Code"
+            value={ifscCode}
+            onChange={(e) => setIfscCode(e.target.value)}
+            className="border p-2 rounded w-full"
+            required
+          />
+          <input
+            type="text"
+            placeholder="Transaction ID"
             value={transactionId}
             onChange={(e) => setTransactionId(e.target.value)}
-             placeholder="e.g., TXN7859ABC"
-            className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
+            className="border p-2 rounded w-full"
             required
-      />
+          />
+        </div>
+      )}
+      {(paymentMethod === "Online Payment" || paymentMethod === "UPI") && (
+        <div className="space-y-2">
+          {paymentMethod === "UPI" && (
+            <input
+              type="text"
+              placeholder="UPI ID"
+              value={upiId}
+              onChange={(e) => setUpiId(e.target.value)}
+              className="border p-2 rounded w-full"
+            />
+          )}
+          <input
+            type="text"
+            placeholder="Transaction ID"
+            value={transactionId}
+            onChange={(e) => setTransactionId(e.target.value)}
+            className="border p-2 rounded w-full"
+            required
+          />
         </div>
       )}
 
-      {paymentMethod === "Online Payment" && (
-        <div>
-          <label htmlFor="transaction-id" className="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
-          <input
-            id="transaction-id"
-            type="text"
-            value={transactionId}
-            onChange={(e) => setTransactionId(e.target.value)}
-            placeholder="e.g., TXN987654"
-            className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
-        </div>
-      )}
-
-      {paymentMethod === "UPI" && (
-        <div>
-          <label htmlFor="upi-id" className="block text-sm font-medium text-gray-700 mb-1">UPI ID</label>
-          <input
-            id="upi-id"
-            type="text"
-            value={upiId}
-            onChange={(e) => setUpiId(e.target.value)}
-            placeholder="e.g., name@upi"
-            className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
-          <label htmlFor="txn-id-exp" className="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
-           <input
-           id="txn-id-exp"
-            type="text"
-            value={transactionId}
-            onChange={(e) => setTransactionId(e.target.value)}
-             placeholder="e.g., TXN7859ABC"
-            className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-            required
-      />
-        </div>
-        
-      )}
       <div>
-        <label htmlFor="expense-description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Description
+        </label>
         <textarea
-          id="expense-description"
+          placeholder="Brief description..."
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Brief description"
-          rows="2"
-          className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
+          className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500 outline-none"
+          rows={2}
           required
-        ></textarea>
+        />
       </div>
 
       <button
         type="submit"
-        className="bg-red-600 text-white px-5 py-2 rounded-full hover:bg-red-700 transition-colors shadow-md w-full sm:w-auto"
+        className="bg-red-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-red-700 w-full font-medium transition-colors"
       >
         Add Expense
       </button>
@@ -326,57 +254,53 @@ function AddExpenseForm({ onSubmit, showMessage, userEmail }) {
   );
 }
 
-
-// --- Component: AddPaymentForm (Defined Locally) ---
-function AddPaymentForm({ onSubmit, showMessage, userEmail }) {
+// --- Component: AddPaymentForm ---
+function AddPaymentForm({ onSubmit, userEmail }) {
   const [amount, setAmount] = useState("");
   const [payer, setPayer] = useState("");
   const [flat, setFlat] = useState("");
   const [month, setMonth] = useState("");
-  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [transactionDate, setTransactionDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [description, setDescription] = useState("");
-  // Conditional fields
-  const [chequeNumber, setChequeNumber] = useState(""); // Conditionally shown
-  const [bankName, setBankName] = useState(""); // Conditionally shown
+
+  // Conditional
+  const [chequeNumber, setChequeNumber] = useState("");
+  const [bankName, setBankName] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const [ifscCode, setIfscCode] = useState("");
   const [upiId, setUpiId] = useState("");
 
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!amount || !payer || !flat || !month || !transactionDate || !paymentMethod || !description) {
-      showMessage("Please fill in all payment details.", "error");
+    if (
+      !amount ||
+      !payer ||
+      !flat ||
+      !month ||
+      !transactionDate ||
+      !paymentMethod ||
+      !description
+    ) {
+      toast.error("Please fill in all required fields.");
       return;
     }
 
-    if (paymentMethod === "Cheque" && !chequeNumber) {
-      showMessage("Please enter the cheque number.", "error");
-      return;
-    }
-
-    if (paymentMethod === "Bank Transfer" && !bankName) {
-      showMessage("Please enter the bank name.", "error");
-       if (!ifscCode || !transactionId) {
-    showMessage("Please provide IFSC Code and Transaction ID.", "error");
-    return;
-  }
-
-  if (paymentMethod === "UPI" && !upiId && !transactionId) {
-      showMessage("Please enter UPI ID.", "error");
-      if (!transactionId) {
-        showMessage("Please enter transaction ID.", "error");
-        return;
-      }
-      
-    }
-     if (paymentMethod === "Online Payment" && !transactionId) {
-      showMessage("Please enter transaction ID.", "error");
-      return;
-    }
-    }
+    if (paymentMethod === "Cheque" && !chequeNumber)
+      return toast.error("Please enter Cheque Number.");
+    if (
+      paymentMethod === "Bank Transfer" &&
+      (!bankName || !ifscCode || !transactionId)
+    )
+      return toast.error("Please enter Bank details.");
+    if (
+      (paymentMethod === "Online Payment" || paymentMethod === "UPI") &&
+      !transactionId
+    )
+      return toast.error("Please enter Transaction ID.");
 
     try {
       await onSubmit({
@@ -387,101 +311,101 @@ function AddPaymentForm({ onSubmit, showMessage, userEmail }) {
         transactionDate,
         paymentMethod,
         description,
-        chequeNumber: paymentMethod === "Cheque" ? chequeNumber : null,
-        bankName: paymentMethod === "Bank Transfer" ? bankName : null,
+        chequeNumber,
+        bankName,
+        transactionId,
+        ifscCode,
+        upiId,
         paidStatus: true,
         type: "INCOME",
         email: userEmail,
-        ifscCode: paymentMethod === "Bank Transfer" ? ifscCode : null,
-        transactionId: paymentMethod === "Bank Transfer" ? transactionId : null,
-        transactionId: paymentMethod === "Online Payment" ? transactionId : null,
-        transactionId: paymentMethod === "UPI" ? transactionId : null,
-        upiId: paymentMethod === "UPI" ? upiId : null,
       });
 
-      showMessage("Payment recorded successfully!", "success");
+      toast.success("Payment recorded successfully!");
 
-      // Reset form
+      // Reset
       setAmount("");
       setPayer("");
       setFlat("");
-      setMonth("");
-      setTransactionDate(new Date().toISOString().slice(0, 10));
-      setPaymentMethod("Cash");
       setDescription("");
       setChequeNumber("");
       setBankName("");
-      setIfscCode("");
       setTransactionId("");
+      setIfscCode("");
       setUpiId("");
     } catch (error) {
-      console.error("Error recording payment from form:", error);
-      showMessage("Failed to record payment. Please try again.", "error");
+      console.error(error);
+      toast.error("Failed to record payment.");
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="payment-amount" className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Amount
+        </label>
         <input
-          id="payment-amount"
           type="number"
+          placeholder="e.g. 2500"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="e.g., 2500"
-          className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
+          className="border p-2 rounded w-full focus:ring-2 focus:ring-green-500 outline-none"
           required
         />
       </div>
 
       <div>
-        <label htmlFor="payer-name" className="block text-sm font-medium text-gray-700 mb-1">Payer Name</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Payer Name
+        </label>
         <input
-          id="payer-name"
           type="text"
+          placeholder="John Doe"
           value={payer}
           onChange={(e) => setPayer(e.target.value)}
-          placeholder="e.g., John Doe"
-          className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
+          className="border p-2 rounded w-full focus:ring-2 focus:ring-green-500 outline-none"
           required
         />
       </div>
 
-      <div>
-        <label htmlFor="payer-flat" className="block text-sm font-medium text-gray-700 mb-1">Flat Number</label>
-        <input
-          id="payer-flat"
-          type="text"
-          value={flat}
-          onChange={(e) => setFlat(e.target.value)}
-          placeholder="e.g., A-101"
-          className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-          required
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Flat No.
+          </label>
+          <input
+            type="text"
+            placeholder="A-101"
+            value={flat}
+            onChange={(e) => setFlat(e.target.value)}
+            className="border p-2 rounded w-full focus:ring-2 focus:ring-green-500 outline-none"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Month
+          </label>
+          <input
+            type="text"
+            placeholder="May 2025"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="border p-2 rounded w-full focus:ring-2 focus:ring-green-500 outline-none"
+            required
+          />
+        </div>
       </div>
 
       <div>
-        <label htmlFor="payment-month" className="block text-sm font-medium text-gray-700 mb-1">For Month</label>
-        <input
-          id="payment-month"
-          type="text"
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
-          placeholder="e.g., May 2025"
-          className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-          required
-        />
-      </div>
-
-      <div>
-        <label htmlFor="payment-method" className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Payment Method
+        </label>
         <select
-          id="payment-method"
           value={paymentMethod}
           onChange={(e) => setPaymentMethod(e.target.value)}
-          className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-          required
+          className="border p-2 rounded w-full focus:ring-2 focus:ring-green-500 outline-none"
         >
           <option value="Cash">Cash</option>
           <option value="Bank Transfer">Bank Transfer</option>
@@ -491,778 +415,94 @@ function AddPaymentForm({ onSubmit, showMessage, userEmail }) {
         </select>
       </div>
 
+      {/* Conditional Fields */}
+      {paymentMethod === "Cheque" && (
+        <input
+          type="text"
+          placeholder="Cheque No."
+          value={chequeNumber}
+          onChange={(e) => setChequeNumber(e.target.value)}
+          className="border p-2 rounded w-full"
+          required
+        />
+      )}
 
       {paymentMethod === "Bank Transfer" && (
-        <div>
-          <label htmlFor="bank-name" className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+        <div className="space-y-2">
           <input
-            id="bank-name"
             type="text"
+            placeholder="Bank Name"
             value={bankName}
             onChange={(e) => setBankName(e.target.value)}
-            placeholder="e.g., HDFC Bank"
-            className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
+            className="border p-2 rounded w-full"
             required
           />
-          <label htmlFor="ifsc-code-exp" className="block text-sm font-medium text-gray-700 mb-1">IFSC Code</label>
           <input
-          id="ifsc-code-exp"
-          type="text"
-          value={ifscCode}
-          onChange={(e) => setIfscCode(e.target.value)}
-          placeholder="e.g., SBIN0001234"
-           className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-           required
-           />
-           <label htmlFor="txn-id-exp" className="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
-           <input
-           id="txn-id-exp"
             type="text"
+            placeholder="IFSC Code"
+            value={ifscCode}
+            onChange={(e) => setIfscCode(e.target.value)}
+            className="border p-2 rounded w-full"
+            required
+          />
+          <input
+            type="text"
+            placeholder="Transaction ID"
             value={transactionId}
             onChange={(e) => setTransactionId(e.target.value)}
-             placeholder="e.g., TXN7859ABC"
-            className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-            required
-                 />
-        </div>
-      )}
-
-      {paymentMethod === "UPI" && (
-        <div>
-          <label htmlFor="upi-id" className="block text-sm font-medium text-gray-700 mb-1">UPI ID</label>
-          <input
-            id="upi-id"
-            type="text"
-            value={upiId}
-            onChange={(e) => setUpiId(e.target.value)}
-            placeholder="e.g., name@upi"
-            className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
-          <label htmlFor="transaction-id" className="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
-          <input
-            id="transaction-id"
-            type="text"
-            value={transactionId}
-            onChange={(e) => setTransactionId(e.target.value)}
-            placeholder="e.g., TXN987654"
-            className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
-        </div>
-        
-      )}
-
-      {paymentMethod === "Cheque" && (
-        <div>
-          <label htmlFor="cheque-number" className="block text-sm font-medium text-gray-700 mb-1">Cheque Number</label>
-          <input
-            id="cheque-number"
-            type="text"
-            value={chequeNumber}
-            onChange={(e) => setChequeNumber(e.target.value)}
-            placeholder="e.g., 123456"
-            className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
+            className="border p-2 rounded w-full"
             required
           />
         </div>
       )}
-       
-       {paymentMethod === "Online Payment" && (
-        <div>
-          <label htmlFor="transaction-id" className="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
+
+      {(paymentMethod === "Online Payment" || paymentMethod === "UPI") && (
+        <div className="space-y-2">
+          {paymentMethod === "UPI" && (
+            <input
+              type="text"
+              placeholder="UPI ID"
+              value={upiId}
+              onChange={(e) => setUpiId(e.target.value)}
+              className="border p-2 rounded w-full"
+            />
+          )}
           <input
-            id="transaction-id"
             type="text"
+            placeholder="Transaction ID"
             value={transactionId}
             onChange={(e) => setTransactionId(e.target.value)}
-            placeholder="e.g., TXN987654"
-            className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
+            className="border p-2 rounded w-full"
             required
           />
         </div>
       )}
 
       <div>
-        <label htmlFor="payment-date" className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
-        <input
-          id="payment-date"
-          type="date"
-          value={transactionDate}
-          onChange={(e) => setTransactionDate(e.target.value)}
-          className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
-          required
-        />
-      </div>
-       
-       <div>
-        <label htmlFor="payment-description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Description
+        </label>
         <textarea
-          id="payment-description"
+          placeholder="Optional notes..."
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Optional note or comment"
-          rows="2"
-          className="border p-2 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
+          className="border p-2 rounded w-full focus:ring-2 focus:ring-green-500 outline-none"
+          rows={2}
           required
-        ></textarea>
+        />
       </div>
 
       <button
         type="submit"
-        className="bg-green-600 text-white px-5 py-2 rounded-full hover:bg-green-700 transition-colors shadow-md w-full sm:w-auto"
+        className="bg-green-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-green-700 w-full font-medium transition-colors"
       >
-        Add Payment
+        Record Payment
       </button>
     </form>
   );
 }
 
-
-
-// --- Component: MemberReceiptCard (Defined Locally) ---
-// function MemberReceiptCard({ payment, societyInfo }) {
-//   const receiptRef = useRef();
-
-//   const downloadReceipt = async () => {
-//     if (!payment.paidStatus) return;
-
-//     const element = receiptRef.current;
-
-//     try {
-//       const blob = await domtoimage.toPng(element);
-//       const pdf = new jsPDF("p", "mm", "a4");
-//       const imgProps = pdf.getImageProperties(blob);
-//       const pdfWidth = pdf.internal.pageSize.getWidth();
-//       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-//       pdf.addImage(blob, "PNG", 0, 0, pdfWidth, pdfHeight);
-//       pdf.save(`Receipt_${payment.payerName || 'Unknown'}_${payment.forMonth || 'NoMonth'}.pdf`);
-//     } catch (error) {
-//       console.error("❌ PDF generation error:", error);
-//     }
-//   };
-
-//   return (
-//     <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 border border-gray-300 text-sm">
-//       {/* Receipt Content */}
-//       <div ref={receiptRef} className="space-y-4 font-sans text-gray-700">
-        
-//         {/* Branding */}
-//         <div className="text-center border-b pb-2 mb-2">
-//           <h2 className="text-lg font-bold text-blue-700">{societyInfo?.name || 'Society Name'}</h2>
-//           <p className="text-xs text-gray-500">{societyInfo?.address || 'Society Address'}</p>
-//         </div>
-
-//         {/* Details Grid */}
-//         <div className="grid grid-cols-2 gap-y-2">
-//           <div className="font-medium">Name:</div>
-//           <div>{payment.payerName || "—"}</div>
-
-//           <div className="font-medium">Flat No.:</div>
-//           <div>{payment.flatNumber || "—"}</div>
-
-//           <div className="font-medium">Month:</div>
-//           <div>{payment.forMonth || "—"}</div>
-
-//           <div className="font-medium">Amount:</div>
-//           <div>₹{payment.amount || "—"}</div>
-
-//           <div className="font-medium">Method:</div>
-//           <div>{payment.paymentMethod || "—"}</div>
-
-//           <div className="font-medium">Receipt ID:</div>
-//           <div>{payment.transactionId || "—"}</div>
-//         </div>
-
-//         {/* Payment Status */}
-//         {payment.paidStatus && (
-//           <div className="mt-3 text-green-600 font-semibold border border-green-500 bg-green-50 rounded px-3 py-1 w-fit">
-//             ✅ Payment Received
-//           </div>
-//         )}
-
-//         {/* Date */}
-//         {payment.transactionDate && (
-//           <p className="text-xs text-gray-500">
-//             Paid on:{" "}
-//             {new Date(payment.transactionDate).toLocaleDateString("en-IN", {
-//               day: "numeric",
-//               month: "long",
-//               year: "numeric",
-//             })}
-//           </p>
-//         )}
-
-//         {/* Thank You Note */}
-//         <p className="text-center text-xs text-gray-500 mt-4">
-//           Thank you for your payment!
-//         </p>
-//       </div>
-
-//       {/* Button */}
-//       <>
-//       <button
-//        className={`mt-4 w-full py-2 px-4 rounded text-white text-sm font-medium transition ${
-//          payment.isApproved && payment.paidStatus
-//            ? "bg-blue-600 hover:bg-blue-700"
-//            : "bg-gray-300 cursor-not-allowed"
-//        }`}
-//        disabled={!payment.paidStatus || !payment.isApproved}
-//        onClick={downloadReceipt}
-//        title={
-//          !payment.paidStatus
-//            ? "Payment not completed"
-//            : !payment.isApproved
-//            ? "Pending admin approval"
-//            : "Download your receipt"
-//        }
-//       >
-//         Download Receipt
-//       </button>
-
-//      {(!payment.paidStatus || !payment.isApproved) && (
-//       <p className="text-xs text-red-500 mt-2 text-center">
-//          Receipt will be available after admin approval.
-//        </p>
-//       )}
-//      </>
-
-//     </div>
-//   );
-// }
-
-
-
-// --- AccountingPage (Main Component) ---
-export default function AccountingPage() {
-   const [role, setRole] = useState("VISITOR");
-   const [roleFetched, setRoleFetched] = useState(false); // NEW
-// Default role for demo purposes
-useEffect(() => {
-  // Simulate role fetching logic (e.g., from Clerk user metadata or a database)
-  const fetchUserRole = async () => {
-    try {
-      const res = await fetch("/api/users/me");
-      if (!res.ok) throw new Error("Failed to fetch user role");
-      const user = await res.json();
-      setRole(user.role); // Set role
-    } catch (error) {
-      console.error("Error fetching user role:", error);
-      setRole("VISITOR"); // Or fallback role
-    } finally {
-      setRoleFetched(true); // Mark that role has been fetched
-    }
-  };
-
-  fetchUserRole();
-}, []);
-
-  // Clerk hooks to get the authentication status and current user's ID.
-  const { isLoaded, userId, signOut } = useAuth();
-  const { user } = useUser(); // Provides access to the full Clerk user object (e.g., email)
-
-  // State for overall data loading indication
-  const [loadingData, setLoadingData] = useState(false);
-
-  // States to hold processed financial data for display
-  const [allTransactions, setAllTransactions] = useState([]);
-  const [monthlyData, setMonthlyData] = useState([]);
-  const [summary, setSummary] = useState({
-    totalIncome: 0,
-    totalExpenses: 0,
-    netBalance: 0,
-  });
-  const [paymentsList, setPaymentsList] = useState([]);
-  const [societyInfo, setSocietyInfo] = useState(null);
-
-  // UI states for feature display and modal messages
-  const isSubscribed = true;
-  const [showAllFeatures, setShowAllFeatures] = useState(false);
-  const [expandedFeature, setExpandedFeature] = useState(null);
-  const [message, setMessage] = useState(null);
-  const [messageType, setMessageType] = useState("info");
-
-  // Memoized callback to display messages using the custom modal
-  const showMessage = useCallback((msg, type) => {
-    setMessage(msg);
-    setMessageType(type);
-  }, []);
-
-  // Memoized callback to clear the custom message modal
-  const clearMessage = useCallback(() => {
-    setMessage(null);
-    setMessageType("info");
-  }, []);
-
-
-  // --- Data Fetching Logic (using Next.js API Route) ---
-  // This useCallback hook ensures the 'fetchTransactions' function is stable across renders.
-  const fetchTransactions = useCallback(async () => {
-    // Only attempt to fetch data if Clerk's authentication state is loaded AND a user is logged in
-    if (!isLoaded || !userId) {
-      // Clear data if no user or auth is still loading
-      setAllTransactions([]);
-      setMonthlyData([]);
-      setSummary({ totalIncome: 0, totalExpenses: 0, netBalance: 0 });
-      setPaymentsList([]);
-      return; // Exit if not ready to fetch
-    }
-
-    setLoadingData(true); // Set loading state to true while fetching begins
-    try {
-      console.log("Frontend Log: Fetching transactions for Clerk userId:", userId);
-      // Make a GET request to your Next.js API route
-      // Clerk automatically handles attaching authentication headers for API routes within Next.js
-      const res = await fetch('/api/accounting/transactions', {
-        headers: {
-          'Content-Type': 'application/json',
-          // No manual Authorization header needed here, Clerk's middleware handles it.
-        },
-      });
-
-      if (!res.ok) {
-        // If response is not OK (e.g., 401, 403, 500), parse and throw error
-        const errorData = await res.json();
-        console.error("Frontend Error: API Error fetching transactions:", errorData);
-        throw new Error(errorData.message || 'Failed to fetch transactions from API');
-      }
-
-      const data = await res.json(); // Parse the JSON response
-      console.log("Frontend Log: Fetched transactions from API:", data);
-      setAllTransactions(data); // Store the raw fetched data
-
-      // --- Data Processing for Monthly Charts (Income vs. Expense) ---
-      // Aggregates income and expenses by month for the bar chart.
-      const newMonthlyData = data.reduce((acc, transaction) => {
-        const date = new Date(transaction.transactionDate); // Use 'transactionDate' from Prisma model
-        const monthName = date.toLocaleString('en-US', { month: 'short' }); // e.g., "Jan", "Feb"
-        const year = date.getFullYear();
-        const key =   `${monthName} ${year}`; // Unique key for each month-year (e.g., "Jan 2025")
-
-        let monthEntry = acc.find(m => m.name === key); // Find if an entry for this month-year already exists
-
-        if (!monthEntry) {
-          // If not, create a new entry
-          monthEntry = { name: key, income: 0, expense: 0, fullDate: date };
-          acc.push(monthEntry);
-        }
-
-        // Add amount to either income or expense based on transaction type
-        if (transaction.type === 'INCOME') { // Use Prisma enum value 'INCOME'
-          monthEntry.income += transaction.amount;
-        } else if (transaction.type === 'EXPENSE') { // Use Prisma enum value 'EXPENSE'
-          monthEntry.expense += transaction.amount;
-        }
-        return acc;
-      }, []);
-
-      newMonthlyData.sort((a, b) => a.fullDate - b.fullDate); // Sort the monthly data chronologically
-      setMonthlyData(newMonthlyData); // Update state for the chart
-
-      // --- Data Processing for Current Month's Summary ---
-      // Filters transactions for the current month and calculates total income, expenses, and net balance.
-      const currentMonthTransactions = data.filter(transaction => {
-        const transactionDate = new Date(transaction.transactionDate);
-        const today = new Date();
-        // Check if transaction month and year match current month and year
-        return transactionDate.getMonth() === today.getMonth() && transactionDate.getFullYear() === today.getFullYear();
-      });
-
-      const incomeSum = currentMonthTransactions
-        .filter(t => t.type === 'INCOME')
-        .reduce((sum, t) => sum + t.amount, 0); // Sum all income for the current month
-      const expenseSum = currentMonthTransactions
-        .filter(t => t.type === 'EXPENSE')
-        .reduce((sum, t) => sum + t.amount, 0); // Sum all expenses for the current month
-
-      setSummary({
-        totalIncome: incomeSum,
-        totalExpenses: expenseSum,
-        netBalance: incomeSum - expenseSum, // Calculate net balance
-      }); // Update state for the monthly summary
-
-      // --- Data Processing for Member Payment Receipts ---
-      // Filters transactions to show only income types and sorts them for the receipts section.
-      const fetchedPayments = data.filter(t => t.type === 'INCOME');
-      fetchedPayments.sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()); // Sort by transaction date (newest first)
-      setPaymentsList(fetchedPayments); // Update state for the receipts list
-
-    } catch (error) {
-      console.error("Frontend Error: Failed to fetch transactions in fetchTransactions:", error);
-      showMessage(error.message || "Failed to load financial data.", "error"); // Show error message in modal
-    } finally {
-      setLoadingData(false); // Always set loading state to false after fetch attempt
-    }
-  }, [isLoaded, userId, showMessage]); // Dependencies for useCallback: re-create if these values change
-
-
-  // Effect hook to fetch society information
-  useEffect(() => {
-    const fetchSocietyInfo = async () => {
-      if (!isLoaded || !userId) return;
-      
-      try {
-        const res = await fetch('/api/users/me');
-        if (res.ok) {
-          const userData = await res.json();
-          if (userData.societyId) {
-            // Fetch society details
-            const societyRes = await fetch(`/api/society/${userData.societyId}`);
-            if (societyRes.ok) {
-              const societyData = await societyRes.json();
-              setSocietyInfo(societyData);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching society info:', error);
-      }
-    };
-    
-    fetchSocietyInfo();
-  }, [isLoaded, userId]);
-
-  // Effect hook to trigger data fetching when Clerk authentication state changes (e.g., user logs in/out)
-  useEffect(() => {
-    // Only fetch data when Clerk has loaded the user info AND a user is present (userId is not null)
-    if (isLoaded && userId) {
-      fetchTransactions(); // Call the memoized fetch function
-    }
-  }, [isLoaded, userId, fetchTransactions]); // Dependencies: re-run this effect if Clerk's loaded status, userId, or fetchTransactions changes
-
-
-  // --- Function to Add New Expense via API ---
-  // This function is passed to AddExpenseForm. It sends data to the API route.
-  const handleAddExpense = async (newExpenseData) => {
-    if (!userId) { // Ensure a user is authenticated before allowing data submission
-      showMessage("Please log in to add expenses.", "error");
-      return;
-    }
-    setLoadingData(true); // Set loading state for form submission
-    try {
-      // Pass Clerk user's email to the API route for potential User creation logic
-      const dataToSend = {
-          ...newExpenseData,
-          email: user?.primaryEmailAddress?.emailAddress, // Pass Clerk user's email if available
-      };
-      console.log("Frontend Log: Sending expense data to API:", dataToSend);
-      // Make a POST request to the accounting transactions API route
-      const res = await fetch('/api/accounting/transactions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Clerk automatically handles authentication headers for API routes
-        },
-        body: JSON.stringify(dataToSend), // Send the transaction data as JSON
-      });
-
-      if (!res.ok) {
-        // If API response is not OK, parse and throw error
-        const errorData = await res.json();
-        console.error("Frontend Error: API Error adding expense:", errorData);
-        throw new Error(errorData.message || 'Failed to add expense via API');
-      }
-      console.log("Frontend Log: Expense added via API successfully!");
-      fetchTransactions(); // Re-fetch all data to update the UI with the new entry
-    } catch (error) {
-      console.error("Frontend Error: Failed to add expense via API:", error);
-      throw error; // Re-throw the error so the calling form can handle it (e.g., display error message)
-    } finally {
-      setLoadingData(false); // Always reset loading state
-    }
-  };
-
-
-  // --- Function to Add New Payment via API ---
-  // This function is passed to AddPaymentForm. It sends data to the API route.
-  const handleAddPayment = async (newPaymentData) => {
-    if (!userId) { // Ensure a user is authenticated before allowing data submission
-      showMessage("Please log in to record payments.", "error");
-      return;
-    }
-    setLoadingData(true); // Set loading state for form submission
-    try {
-        // Pass Clerk user's email to the API route for potential User creation logic
-        const dataToSend = {
-            ...newPaymentData,
-            email: user?.primaryEmailAddress?.emailAddress, // Pass Clerk user's email if available
-        };
-      console.log("Frontend Log: Sending payment data to API:", dataToSend);
-      const res = await fetch('/api/accounting/transactions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dataToSend), // Send the transaction data as JSON
-      });
-
-      if (!res.ok) {
-        // If API response is not OK, parse and throw error
-        const errorData = await res.json();
-        console.error("Frontend Error: API Error recording payment:", errorData);
-        throw new Error(errorData.message || 'Failed to record payment via API');
-      }
-      console.log("Frontend Log: Payment recorded via API successfully!");
-      fetchTransactions(); // Re-fetch all data to update the UI with the new entry
-    } catch (error) {
-      console.error("Frontend Error: Failed to record payment via API:", error);
-      throw error; // Re-throw the error so the calling form can handle it
-    } finally {
-      setLoadingData(false); // Always reset loading state
-    }
-  };
-
-  // Static data for main features section (purely for UI display)
-  const mainFeatures = [
-    { icon: <BarChart3 className="w-6 h-6 text-blue-600" />, title: "Income & Expense Tracking", desc: "Record all society transactions, categorize, and filter them by type or time period.", details: "Track maintenance collections, utility bills, vendor payments, and more. Keep everything categorized for easy auditing and reporting." },
-    { icon: <Banknote className="w-6 h-6 text-green-600" />, title: "Bank Reconciliation", desc: "Easily reconcile society accounts with real bank statements.", details: "Match each transaction with your bank entries. Reduce errors and increase financial transparency for your committee." },
-    { icon: <FileText className="w-6 h-6 text-purple-600" />, title: "Audit-ready Reports", desc: "Generate downloadable reports for audits or annual reviews.", details: "Export PDF or Excel reports covering income, expenses, dues, and balances. Perfect for AGMs or auditor reviews." },
-  ];
-
-  // Static data for extra features section (purely for UI display)
-  const extraFeatures = [
-    { icon: <PieChart className="w-6 h-6 text-orange-600" />, title: "Category-wise Breakdown", desc: "Visualize your income and expenses across different heads.", details: "Quickly understand where your society spends the most or earns the most. Perfect for budget planning.", isNew: true },
-    { icon: <TrendingUp className="w-6 h-6 text-indigo-600" />, title: "Financial Insights", desc: "Automatic insights like top spending months or overdue dues.", details: "Let the system surface useful insights like irregular payments, seasonal spikes, and long-standing dues." },
-    { icon: <Receipt className="w-6 h-6 text-pink-600" />, title: "Auto Receipts", desc: "Send instant payment receipts to members via email or SMS.", details: "Confirmations build trust. Automatically notify members with official receipts for every payment logged.", isNew: true },
-    { icon: <ClipboardList className="w-6 h-6 text-teal-600" />, title: "Expense Approvals", desc: "Route expenses for committee approval before final entry.", details: "Optional workflow to ensure only vetted expenses make it to the ledger. Great for larger societies." },
-  ];
-
-  // UI logic for expanding/collapsing feature details
-  const toggleFeature = (title) => {
-    setExpandedFeature(expandedFeature === title ? null : title);
-  };
-
-  // --- Conditional Rendering for Loading and Unauthenticated States ---
-  // Display a loading spinner if Clerk's auth state is still loading or data is being fetched.
-  if (!isLoaded || loadingData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-12 w-12 text-blue-500 animate-spin" />
-        <p className="ml-4 text-gray-700 text-lg">Loading accounting data...</p>
-      </div>
-    );
-  }
-
-  // If Clerk has loaded but no user ID is present (user is not logged in), show login prompt.
-  if (!userId) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <MessageModal message={message} type={messageType} onClose={clearMessage} />
-        <div className="bg-white rounded-2xl shadow-xl p-10 text-center max-w-lg w-full border border-blue-200">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">Access Restricted</h1>
-          <p className="text-gray-600 text-lg mb-6">
-            Please log in to view and manage society accounting.
-          </p>
-          <Link
-            href="/login" // Link to your existing login page
-            className="inline-block bg-blue-600 text-white text-md font-bold px-8 py-4 rounded-full hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
-          >
-            Log In
-          </Link>
-          <p className="mt-4 text-sm text-gray-500">
-            Don't have an account?{" "}
-            <Link href="/signup" className="text-blue-600 underline hover:text-blue-800">
-              Sign Up
-            </Link>
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // --- Main Accounting Page UI (rendered when authenticated and data is loaded) ---
-  return (
-    <div className="bg-gray-50 min-h-screen px-4 py-10 font-sans antialiased">
-      {/* Custom message modal rendered at the top level */}
-      <MessageModal message={message} type={messageType} onClose={clearMessage} />
-
-      <div className="max-w-6xl mx-auto space-y-12">
-        {/* Premium Accounting Unlock Section (Conditional, based on isSubscribed) */}
-        {!isSubscribed && (
-          <div className="bg-white rounded-2xl shadow-xl p-10 text-center border border-blue-200">
-            <Image
-              src="https://res.cloudinary.com/dayrre5om/image/upload/v1748016715/WhatsApp_Image_2025-05-23_at_21.40.22_368915a7_uhkm97.jpg"
-              alt="Premium Accounting"
-              width={400}
-              height={250}
-              className="rounded-lg mb-6 mx-auto object-cover"
-            />
-            <h1 className="text-4xl font-extrabold text-gray-900 mb-4 leading-tight">Unlock Premium Accounting</h1>
-            <p className="text-gray-700 text-lg mb-6 max-w-2xl mx-auto">
-              Simplify society finances with powerful features: income & expense tracking, bank reconciliation, downloadable audit-ready reports and more.
-            </p>
-            <Link
-              href="/demo"
-              className="inline-block bg-blue-600 text-white text-md font-bold px-8 py-4 rounded-full hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
-            >
-              Request a Demo
-            </Link>
-            <p className="mt-6 text-sm text-gray-500">
-              Already subscribed?{" "}
-              <Link href="/login" className="text-blue-600 underline hover:text-blue-800">
-                Log in
-              </Link>
-            </p>
-          </div>
-        )}
-
-        {/* Feature Grid Section */}
-        <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">Society Accounting Features</h2>
-          <p className="text-gray-700 mb-8 max-w-2xl">
-            Access powerful tools to manage your society’s complete financial lifecycle — from dues and collections to reports and audits.
-          </p>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 text-left">
-            {[...mainFeatures, ...(showAllFeatures ? extraFeatures : [])].map(
-              ({ icon, title, desc, details, isNew }) => (
-                <li
-                  key={title}
-                  className="bg-gray-100 rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 cursor-pointer relative"
-                  onClick={() => toggleFeature(title)}
-                >
-                  <div className="flex items-center gap-4 mb-3">
-                    <div className="p-2 rounded-full bg-blue-50/50">{icon}</div>
-                    <h3 className="text-xl font-bold text-blue-800">{title}</h3>
-                    {isNew && (
-                      <span className="ml-auto bg-blue-200 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full animate-pulse">
-                        ✨ New
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-gray-600 text-sm mb-3">{desc}</p>
-                  <button
-                    className="text-sm text-blue-700 hover:underline font-semibold focus:outline-none"
-                    onClick={(e) => { // Prevent card click from also toggling
-                      e.stopPropagation(); // Stop event propagation to avoid triggering parent li's onClick
-                      toggleFeature(title);
-                    }}
-                  >
-                    {expandedFeature === title ? "Show Less" : "Learn More →"}
-                  </button>
-                  {expandedFeature === title && (
-                    <p className="mt-3 text-sm text-gray-700 leading-relaxed bg-white p-3 rounded-lg border border-gray-200">
-                      {details}
-                    </p>
-                  )}
-                </li>
-              )
-            )}
-          </ul>
-          <div className="text-center mt-10">
-            <button
-              onClick={() => setShowAllFeatures((prev) => !prev)}
-              className="text-blue-700 font-semibold hover:underline focus:outline-none text-lg px-6 py-3 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors"
-            >
-              {showAllFeatures ? "Show Less Features" : "See All Accounting Features"}
-            </button>
-          </div>
-        </div>
-
-        {/* Charts and Summary Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Monthly Finance Overview</h3>
-            {monthlyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyData}>
-                  <XAxis dataKey="name" stroke="#6b7280" />
-                  <YAxis stroke="#6b7280" />
-                  <Tooltip
-                    formatter={(value, name) => [`₹ ${value.toLocaleString('en-IN')}`, name]}
-                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px' }}
-                    labelStyle={{ color: '#374151', fontWeight: 'bold' }}
-                  />
-                  <Bar dataKey="income" fill="#2563eb" name="Income" radius={[10, 10, 0, 0]} />
-                  <Bar dataKey="expense" fill="#f97316" name="Expense" radius={[10, 10, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                <p>No financial data available for charts.</p>
-              </div>
-            )}
-          </div>
-          <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 space-y-5 flex flex-col justify-center">
-            <h3 className="text-xl font-bold text-gray-800 mb-2">This Month's Summary</h3>
-            <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-              <div className="text-gray-600 font-medium">Total Income</div>
-              <div className="font-bold text-green-600 text-lg">₹ {summary.totalIncome.toLocaleString('en-IN')}</div>
-            </div>
-            <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-              <div className="text-gray-600 font-medium">Total Expenses</div>
-              <div className="font-bold text-red-600 text-lg">₹ {summary.totalExpenses.toLocaleString('en-IN')}</div>
-            </div>
-            <div className="flex justify-between items-center pt-2">
-              <div className="text-gray-700 font-semibold text-lg">Net Balance</div>
-              <div className="font-extrabold text-blue-700 text-2xl">₹ {summary.netBalance.toLocaleString('en-IN')}</div>
-            </div>
-            {userId && ( // Display Clerk's userId for debugging/identification
-              <div> 
-                <p className="text-xs text-gray-400 mt-4 break-all">Logged in as Clerk ID: {userId}</p>
-              <p className="text-xs text-gray-400 mt-4 break-all">Logged in user role: {role}</p>
-              </div>
-            )}
-            <button
-                onClick={() => signOut()} // Clerk's signOut method
-                className="mt-4 bg-gray-200 text-gray-700 px-4 py-2 rounded-full hover:bg-gray-300 transition-colors self-end flex items-center justify-center"
-              >
-                <LogOut className="w-4 h-4 mr-2" /> Log Out
-              </button>
-          </div>
-        </div>
-
-        {/* Forms Section */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-10 bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
-  
-  {/* PAYMENT FORM - for everyone except visitor */}
-  {role !== 'VISITOR' && (
-    <div>
-      <h3 className="text-2xl font-bold text-gray-800 mb-5">Record New Payment</h3>
-      <AddPaymentForm
-        onSubmit={handleAddPayment}
-        showMessage={showMessage}
-        userEmail={user?.primaryEmailAddress?.emailAddress}
-      />
-    </div>
-  )}
-
-  {/* EXPENSE FORM - only for ADMIN and SUPER_ADMIN */}
-  <RoleGuard roles={['SOCIETY_ADMIN', 'SUPER_ADMIN']} userRole={role}>
-    <div>
-      <h3 className="text-2xl font-bold text-gray-800 mb-5">Log New Expense</h3>
-      <AddExpenseForm
-        onSubmit={handleAddExpense}
-        showMessage={showMessage}
-        userEmail={user?.primaryEmailAddress?.emailAddress}
-      />
-    </div>
-  </RoleGuard>
-
-</div>
-
-
-        {/* Member Receipts Section */}
-      {role !== 'VISITOR' && (
-<ReceiptTable societyInfo={societyInfo} userRole={role} />
-)}
-  
-        {/* Back to Dashboard Link */}
-        <div className="text-center mt-10">
-          <Link href="/dashboard" className="text-blue-600 font-medium hover:underline text-lg">
-            ← Back to Dashboard
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --- MemberReceiptCard Component ---
-// import { useEffect, useState } from "react";
-// import domtoimage from "dom-to-image";
-// import jsPDF from "jspdf";
-
+// --- Component: ReceiptTable ---
 function ReceiptTable({ societyInfo, userRole }) {
   const [receipts, setReceipts] = useState([]);
   const [month, setMonth] = useState("");
@@ -1272,105 +512,106 @@ function ReceiptTable({ societyInfo, userRole }) {
   const [currentPage, setCurrentPage] = useState(1);
   const receiptsPerPage = 6;
 
-  const fetchReceipts = async () => {
+  const fetchReceipts = useCallback(async () => {
     try {
       const query = new URLSearchParams();
       if (month) query.append("month", month);
       if (year) query.append("year", year);
       if (flatFilter) query.append("flat", flatFilter);
       if (typeFilter) query.append("type", typeFilter);
-      const res = await fetch(`/api/accounting/approve-transaction?${query.toString()}`);
-      const data = await res.json();
-      setReceipts(data);
-      setCurrentPage(1);
+
+      const res = await fetch(
+        `/api/accounting/approve-transaction?${query.toString()}`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setReceipts(Array.isArray(data) ? data : []);
+        setCurrentPage(1);
+      }
     } catch (e) {
       console.error("Failed to fetch receipts", e);
+      toast.error("Could not load receipts.");
     }
-  };
+  }, [month, year, flatFilter, typeFilter]);
 
   useEffect(() => {
     fetchReceipts();
-  }, [month, year, flatFilter, typeFilter]);
-
+  }, [fetchReceipts]);
 
   const download = async (payment) => {
-  const receiptNode = document.createElement("div");
-  receiptNode.style.position = "absolute";
-  receiptNode.style.top = "-9999px"; // hide off-screen
-  receiptNode.style.padding = "24px";
-  receiptNode.style.fontFamily = "Arial, sans-serif";
-  receiptNode.style.width = "600px"; // maintain consistent width
+    toast.loading("Generating Receipt...", { id: "receipt-gen" });
 
-  receiptNode.innerHTML = `
-  <div style="border:1px solid #ccc; padding: 20px;">
-    <h2 style="text-align: center; color: #2563eb; margin: 0;">${societyInfo?.name || "Society Name"}</h2>
-    <p style="text-align: center; margin: 0; font-size: 12px;">${societyInfo?.address || "Society Address"}</p>
-    <hr style="margin: 16px 0;" />
+    const receiptNode = document.createElement("div");
+    receiptNode.style.position = "absolute";
+    receiptNode.style.top = "-9999px";
+    receiptNode.style.padding = "24px";
+    receiptNode.style.fontFamily = "Arial, sans-serif";
+    receiptNode.style.width = "600px";
 
-    <p><strong>Name:</strong> ${payment.payerName || "—"}</p>
-    <p><strong>Flat No.:</strong> ${payment.flatNumber || "—"}</p>
-    <p><strong>Amount:</strong> ₹${payment.amount || "—"}</p>
-    <p><strong>Category:</strong> ${payment.category || "—"}</p>        <!-- ✅ Category -->
-    <p><strong>Description:</strong> ${payment.description || "—"}</p>  <!-- ✅ Description -->
-    <p><strong>For Month:</strong> ${payment.forMonth || "—"}</p>
-    <p><strong>Payment Method:</strong> ${payment.paymentMethod || "—"}</p>
-    ${
-      payment.transactionId
-        ? `<p><strong>Transaction ID:</strong> ${payment.transactionId}</p>`
-        : ""
+    receiptNode.innerHTML = `
+      <div style="border:1px solid #ccc; padding: 20px;">
+        <h2 style="text-align: center; color: #2563eb; margin: 0;">${societyInfo?.name || "Society Name"}</h2>
+        <p style="text-align: center; margin: 0; font-size: 12px;">${societyInfo?.address || "Society Address"}</p>
+        <hr style="margin: 16px 0;" />
+        <p><strong>Name:</strong> ${payment.payerName || "—"}</p>
+        <p><strong>Flat No.:</strong> ${payment.flatNumber || "—"}</p>
+        <p><strong>Amount:</strong> ₹${payment.amount || "—"}</p>
+        <p><strong>For Month:</strong> ${payment.forMonth || "—"}</p>
+        <p><strong>Payment Method:</strong> ${payment.paymentMethod || "—"}</p>
+        ${payment.transactionId ? `<p><strong>Transaction ID:</strong> ${payment.transactionId}</p>` : ""}
+        <p style="font-size: 12px; color: gray;">Paid on: ${new Date(payment.approvedAt || payment.transactionDate).toLocaleDateString("en-IN")}</p>
+        <p style="text-align: center; font-size: 12px; color: gray; margin-top: 20px;">Thank you for your payment!</p>
+      </div>
+    `;
+
+    document.body.appendChild(receiptNode);
+
+    try {
+      const domtoimage = (await import("dom-to-image-more")).default;
+      const { jsPDF } = await import("jspdf");
+      const blob = await domtoimage.toPng(receiptNode);
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgProps = pdf.getImageProperties(blob);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(blob, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Receipt_${payment.payerName || "Unknown"}.pdf`);
+      toast.success("Receipt Downloaded!", { id: "receipt-gen" });
+    } catch (err) {
+      console.error("PDF Error", err);
+      toast.error("Failed to generate PDF", { id: "receipt-gen" });
+    } finally {
+      document.body.removeChild(receiptNode);
     }
-    <p style="font-size: 12px; color: gray;">
-      Paid on: ${payment.approvedAt ? new Date(payment.approvedAt).toLocaleDateString("en-IN") : "—"}
-    </p>
+  };
 
-    <p style="text-align: center; font-size: 12px; color: gray; margin-top: 20px;">Thank you for your payment!</p>
-  </div>
-`;
+  const safeReceipts = Array.isArray(receipts) ? receipts : [];
+  const paginatedReceipts = safeReceipts.slice(
+    (currentPage - 1) * receiptsPerPage,
+    currentPage * receiptsPerPage,
+  );
+  const totalPages = Math.ceil(safeReceipts.length / receiptsPerPage);
 
-
-  // Append off-screen to DOM
-  document.body.appendChild(receiptNode);
-
-  try {
-    const blob = await domtoimage.toPng(receiptNode);
-    const pdf = new jsPDF("p", "mm", "a4");
-    const imgProps = pdf.getImageProperties(blob);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-    pdf.addImage(blob, "PNG", 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`Receipt_${payment.payerName || "Unknown"}.pdf`);
-  } catch (err) {
-    console.error("❌ Error generating receipt PDF", err);
-  } finally {
-    // Clean up DOM
-    document.body.removeChild(receiptNode);
-  }
-};
-
-
-  // Generate month and year options for the dropdowns
-
-  const months = [...Array(12).keys()].map(i => ({
+  // Helper for dropdowns
+  const months = [...Array(12).keys()].map((i) => ({
     value: i + 1,
     label: new Date(0, i).toLocaleString("default", { month: "long" }),
   }));
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
-
-  const safeReceipts = Array.isArray(receipts) ? receipts : [];
-const paginatedReceipts = safeReceipts.slice(
-  (currentPage - 1) * receiptsPerPage,
-  currentPage * receiptsPerPage
-);
-const totalPages = Math.ceil(safeReceipts.length / receiptsPerPage);
+  const years = Array.from(
+    { length: 5 },
+    (_, i) => new Date().getFullYear() - i,
+  );
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-lg border space-y-4">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h2 className="text-xl font-bold text-gray-800">Member Payment Receipts</h2>
-        <div className="flex gap-2">
-          <select onChange={(e) => setMonth(e.target.value)} value={month} className="border px-2 py-1 rounded text-sm">
+        <h2 className="text-xl font-bold text-gray-800">Payment Receipts</h2>
+        <div className="flex gap-2 flex-wrap">
+          <select
+            onChange={(e) => setMonth(e.target.value)}
+            className="border px-2 py-1 rounded text-sm bg-white"
+          >
             <option value="">All Months</option>
             {months.map((m) => (
               <option key={m.value} value={m.value}>
@@ -1378,7 +619,10 @@ const totalPages = Math.ceil(safeReceipts.length / receiptsPerPage);
               </option>
             ))}
           </select>
-          <select onChange={(e) => setYear(e.target.value)} value={year} className="border px-2 py-1 rounded text-sm">
+          <select
+            onChange={(e) => setYear(e.target.value)}
+            className="border px-2 py-1 rounded text-sm bg-white"
+          >
             <option value="">All Years</option>
             {years.map((y) => (
               <option key={y} value={y}>
@@ -1386,89 +630,401 @@ const totalPages = Math.ceil(safeReceipts.length / receiptsPerPage);
               </option>
             ))}
           </select>
-          
           {userRole === "SOCIETY_ADMIN" && (
-  <select
-    onChange={(e) => setTypeFilter(e.target.value)}
-    value={typeFilter}
-    className="border px-2 py-1 rounded text-sm"
-  >
-    <option value="">All Types</option>
-    <option value="INCOME">Income</option>
-    <option value="EXPENSE">Expense</option>
-  </select>
-)}
+            <select
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="border px-2 py-1 rounded text-sm bg-white"
+            >
+              <option value="">All Types</option>
+              <option value="INCOME">Income</option>
+              <option value="EXPENSE">Expense</option>
+            </select>
+          )}
         </div>
       </div>
-   <input
-     type="text"
-     placeholder="Flat No."
-    value={flatFilter}
-    onChange={(e) => setFlatFilter(e.target.value)}
-     className="border px-2 py-1 rounded text-sm"
-    />
 
-
-      {paginatedReceipts.length === 0 ? (
-        <p className="text-gray-500">No payment receipts found for the selected period.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm border border-gray-200">
-            <thead className="bg-gray-100 text-left">
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm border border-gray-200">
+          <thead className="bg-gray-100 text-left">
+            <tr>
+              <th className="px-3 py-2">Name</th>
+              <th className="px-3 py-2">Flat</th>
+              <th className="px-3 py-2">Month</th>
+              <th className="px-3 py-2">Amount</th>
+              <th className="px-3 py-2">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedReceipts.length === 0 ? (
               <tr>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Flat</th>
-                <th className="px-3 py-2">Month</th>
-                <th className="px-3 py-2">Amount</th>
-                <th className="px-3 py-2">Mode</th>
-                <th className="px-3 py-2">Date</th>
-                <th className="px-3 py-2">Action</th>
+                <td colSpan="5" className="text-center py-4 text-gray-500">
+                  No receipts found.
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {paginatedReceipts.map((p) => (
-                <tr key={p.id} className="border-t">
-                  <td className="px-3 py-2">{p.payerName || "—"}</td>
-                  <td className="px-3 py-2">{p.flatNumber || "—"}</td>
-                  <td className="px-3 py-2">{p.forMonth || "—"}</td>
-                  <td className="px-3 py-2">₹{p.amount}</td>
-                  <td className="px-3 py-2">{p.paymentMethod || "—"}</td>
-                  <td className="px-3 py-2">
-                    {new Date(p.approvedAt).toLocaleDateString("en-IN")}
-                  </td>
+            ) : (
+              paginatedReceipts.map((p) => (
+                <tr key={p.id} className="border-t hover:bg-gray-50">
+                  <td className="px-3 py-2">{p.payerName}</td>
+                  <td className="px-3 py-2">{p.flatNumber}</td>
+                  <td className="px-3 py-2">{p.forMonth}</td>
+                  <td className="px-3 py-2 font-medium">₹{p.amount}</td>
                   <td className="px-3 py-2">
                     <button
-                      className="bg-blue-600 text-white text-xs px-3 py-1 rounded hover:bg-blue-700"
                       onClick={() => download(p)}
+                      className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
                     >
-                      Download
+                      <Receipt className="w-4 h-4" /> Download
                     </button>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-4">
-              {[...Array(totalPages).keys()].map((i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={`px-3 py-1 rounded ${
-                    currentPage === i + 1
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 hover:bg-gray-200"
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2 mt-4">
+          {[...Array(totalPages).keys()].map((i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentPage(i + 1)}
+              className={`px-3 py-1 rounded ${currentPage === i + 1 ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200"}`}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- MAIN PAGE COMPONENT ---
+export default function AccountingPage() {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [authLoaded, setAuthLoaded] = useState(false);
+  const [role, setRole] = useState("VISITOR");
+
+  const [loadingData, setLoadingData] = useState(false);
+  const [allTransactions, setAllTransactions] = useState([]);
+  const [monthlyData, setMonthlyData] = useState([]);
+  const [summary, setSummary] = useState({
+    totalIncome: 0,
+    totalExpenses: 0,
+    netBalance: 0,
+  });
+  const [societyInfo, setSocietyInfo] = useState(null);
+
+  const [showAllFeatures, setShowAllFeatures] = useState(false);
+  const [expandedFeature, setExpandedFeature] = useState(null);
+
+  // 1. AUTH CHECK
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/users/me");
+        if (res.ok) {
+          const userData = await res.json();
+          setUser(userData);
+          setRole(userData.role);
+          // Fetch society info for receipts if available
+          if (userData.societyId) {
+            fetch(`/api/society/${userData.societyId}`)
+              .then((r) => r.json())
+              .then(setSocietyInfo)
+              .catch(console.error);
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (e) {
+        console.error("Auth check failed", e);
+      } finally {
+        setAuthLoaded(true);
+      }
+    };
+    checkAuth();
+  }, []);
+
+  // 2. FETCH DATA
+  const fetchTransactions = useCallback(async () => {
+    if (!user) return;
+    setLoadingData(true);
+    try {
+      const res = await fetch("/api/accounting/transactions");
+      if (!res.ok) throw new Error("Failed to fetch data");
+      const data = await res.json();
+      setAllTransactions(data);
+
+      // Process Charts
+      const newMonthlyData = data.reduce((acc, t) => {
+        const date = new Date(t.transactionDate);
+        const key = `${date.toLocaleString("en-US", { month: "short" })} ${date.getFullYear()}`;
+        let entry = acc.find((m) => m.name === key);
+        if (!entry) {
+          entry = { name: key, income: 0, expense: 0, fullDate: date };
+          acc.push(entry);
+        }
+        if (t.type === "INCOME") entry.income += t.amount;
+        else if (t.type === "EXPENSE") entry.expense += t.amount;
+        return acc;
+      }, []);
+      newMonthlyData.sort((a, b) => a.fullDate - b.fullDate);
+      setMonthlyData(newMonthlyData);
+
+      // Process Summary (Current Month)
+      const now = new Date();
+      const current = data.filter((t) => {
+        const d = new Date(t.transactionDate);
+        return (
+          d.getMonth() === now.getMonth() &&
+          d.getFullYear() === now.getFullYear()
+        );
+      });
+      const income = current
+        .filter((t) => t.type === "INCOME")
+        .reduce((s, t) => s + t.amount, 0);
+      const expense = current
+        .filter((t) => t.type === "EXPENSE")
+        .reduce((s, t) => s + t.amount, 0);
+      setSummary({
+        totalIncome: income,
+        totalExpenses: expense,
+        netBalance: income - expense,
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error("Could not load financial data.");
+    } finally {
+      setLoadingData(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (authLoaded && user) {
+      fetchTransactions();
+    }
+  }, [authLoaded, user, fetchTransactions]);
+
+  // 3. HANDLERS
+  const handleAddPayment = async (data) => {
+    try {
+      const res = await fetch("/api/accounting/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) fetchTransactions();
+      else throw new Error("API Error");
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  };
+
+  const handleAddExpense = async (data) => {
+    try {
+      const res = await fetch("/api/accounting/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) fetchTransactions();
+      else throw new Error("API Error");
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/";
+  };
+
+  // 4. LOADING STATE
+  if (!authLoaded || loadingData)
+    return (
+      <div className="flex justify-center h-screen items-center">
+        <Loader2 className="animate-spin text-blue-600 w-10 h-10" />
+      </div>
+    );
+
+  // 5. RESTRICTED STATE
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-50 p-4">
+        <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-md w-full border border-blue-100">
+          <h1 className="text-3xl font-bold text-gray-800 mb-4">
+            Access Restricted
+          </h1>
+          <p className="text-gray-600 mb-6">
+            Please log in to manage accounting.
+          </p>
+          <Link
+            href="/sign-in"
+            className="inline-block bg-blue-600 text-white px-8 py-3 rounded-full hover:bg-blue-700 font-bold shadow-lg transition-transform hover:scale-105"
+          >
+            Log In
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // 6. MAIN UI
+  return (
+    <div className="bg-gray-50 min-h-screen px-4 py-10 font-sans antialiased">
+      <div className="max-w-6xl mx-auto space-y-8">
+        {/* Header & Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Chart */}
+          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+            <h3 className="font-bold text-gray-800 mb-4 text-lg">
+              Monthly Finance Overview
+            </h3>
+            <div style={{ width: "100%", height: 300 }}>
+              {monthlyData.length > 0 ? (
+                <ResponsiveContainer>
+                  <BarChart data={monthlyData}>
+                    <XAxis dataKey="name" stroke="#6b7280" />
+                    <YAxis stroke="#6b7280" />
+                    <Tooltip
+                      formatter={(value) =>
+                        `₹ ${value.toLocaleString("en-IN")}`
+                      }
+                      cursor={{ fill: "#f3f4f6" }}
+                    />
+                    <Bar
+                      dataKey="income"
+                      fill="#2563eb"
+                      name="Income"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="expense"
+                      fill="#f97316"
+                      name="Expense"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-400">
+                  No data available
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Summary Card */}
+          <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-center space-y-6">
+            <h3 className="text-xl font-bold text-gray-800 border-b pb-2">
+              Current Month Summary
+            </h3>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 font-medium">Total Income</span>
+              <span className="text-green-600 font-bold text-xl">
+                ₹ {summary.totalIncome.toLocaleString("en-IN")}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 font-medium">Total Expenses</span>
+              <span className="text-red-600 font-bold text-xl">
+                ₹ {summary.totalExpenses.toLocaleString("en-IN")}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pt-4 border-t">
+              <span className="text-gray-800 font-bold text-lg">
+                Net Balance
+              </span>
+              <span
+                className={`font-extrabold text-2xl ${summary.netBalance >= 0 ? "text-blue-700" : "text-red-600"}`}
+              >
+                ₹ {summary.netBalance.toLocaleString("en-IN")}
+              </span>
+            </div>
+            {/* User Info */}
+            <div className="mt-4 pt-4 border-t border-dashed text-xs text-gray-400 flex justify-between">
+              <span>Role: {role}</span>
+              <button
+                onClick={handleLogout}
+                className="text-red-500 hover:underline flex items-center gap-1"
+              >
+                <LogOut className="w-3 h-3" /> Logout
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Forms */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {role !== "VISITOR" && (
+            <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+              <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <Banknote className="w-6 h-6 text-green-600" /> Record Payment
+              </h3>
+              <AddPaymentForm
+                onSubmit={handleAddPayment}
+                userEmail={user.email}
+              />
+            </div>
+          )}
+          {["SOCIETY_ADMIN", "SUPER_ADMIN"].includes(role) && (
+            <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+              <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <ClipboardList className="w-6 h-6 text-red-600" /> Log Expense
+              </h3>
+              <AddExpenseForm
+                onSubmit={handleAddExpense}
+                userEmail={user.email}
+              />
             </div>
           )}
         </div>
-      )}
+
+        {/* Receipts Table */}
+        {role !== "VISITOR" && (
+          <ReceiptTable societyInfo={societyInfo} userRole={role} />
+        )}
+
+        {/* Features Toggle (Visual Only) */}
+        <div className="text-center pt-8">
+          <button
+            onClick={() => setShowAllFeatures(!showAllFeatures)}
+            className="text-blue-600 hover:underline"
+          >
+            {showAllFeatures
+              ? "Hide Features Info"
+              : "View Accounting Features Info"}
+          </button>
+          {showAllFeatures && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 text-left">
+              {/* Simplified feature cards for brevity */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-bold text-blue-800">Tracking</h4>
+                <p className="text-sm text-blue-600">
+                  Track every rupee in and out.
+                </p>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h4 className="font-bold text-green-800">Reconciliation</h4>
+                <p className="text-sm text-green-600">
+                  Match with bank statements.
+                </p>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <h4 className="font-bold text-purple-800">Audits</h4>
+                <p className="text-sm text-purple-600">
+                  Generate reports for auditors.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

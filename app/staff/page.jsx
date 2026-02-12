@@ -4,7 +4,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import RoleGuard from "@/components/RoleGuard";
 
 export default function StaffHome() {
   const [userRole, setUserRole] = useState(null);
@@ -46,7 +45,7 @@ export default function StaffHome() {
       
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Staff Self-Service Features - Visible to all staff */}
-        <RoleGuard roles={["STAFF", "WATCHMAN", "TECHNICIAN"]} userRole={userRole}>
+        {["STAFF", "WATCHMAN", "TECHNICIAN"].includes(userRole) && (
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-2xl font-semibold mb-6 text-blue-700 border-b pb-3">
               Staff Features
@@ -101,10 +100,10 @@ export default function StaffHome() {
               </Link>
             </div>
           </div>
-        </RoleGuard>
+        )}
 
         {/* Watchman Specific Features */}
-        <RoleGuard roles={["WATCHMAN"]} userRole={userRole}>
+        {userRole === "WATCHMAN" && (
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-2xl font-semibold mb-6 text-green-700 border-b pb-3">
               Watchman Features
@@ -143,10 +142,10 @@ export default function StaffHome() {
               </Link>
             </div>
           </div>
-        </RoleGuard>
+        )}
 
         {/* Staff Management Features - Only for Society Admin */}
-        <RoleGuard roles={["SOCIETY_ADMIN", "SUPER_ADMIN"]} userRole={userRole}>
+        {["SOCIETY_ADMIN", "SUPER_ADMIN"].includes(userRole) && (
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-2xl font-semibold mb-6 text-red-700 border-b pb-3">
               Staff Management (Admin Only)
@@ -193,7 +192,7 @@ export default function StaffHome() {
               </Link>
             </div>
           </div>
-        </RoleGuard>
+        )}
 
         {/* Access Denied Message for non-staff users */}
         {userRole && !["STAFF", "WATCHMAN", "TECHNICIAN", "SOCIETY_ADMIN", "SUPER_ADMIN"].includes(userRole) && (

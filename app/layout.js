@@ -1,8 +1,9 @@
+export const dynamic = "force-dynamic";
+
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "../components/Navbar";
 import Footer from "@/components/Footer";
-import { ClerkProvider } from "@clerk/nextjs";
 import NextTopLoader from "nextjs-toploader";
 import { Toaster } from "react-hot-toast";
 
@@ -17,32 +18,39 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Apna Complex",
-  description: "A community management platform for your apartment complex",
+  title: "E-Partment",
+  description: "Smart Community Management Platform for Societies",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
-    <ClerkProvider>
-      <html lang="en">
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        >
-          <NextTopLoader
-            color="#1e40af"
-            height={4}
-            showSpinner={false}
-            easing="ease-in-out"
-            speed={400}
-            crawl={true}
-            crawlSpeed={200}
-          />
-          <Navbar />
-          <main className="min-h-screen">{children}</main>
-          <Toaster richColors />
-          <Footer />
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en">
+      <body
+        // ✅ CHANGED: Applied flex-col and min-h-screen directly to body
+        // 'flex-col' stacks items vertically
+        // 'min-h-screen' ensures body is at least 100vh
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 text-gray-900 flex flex-col min-h-screen`}
+      >
+        <NextTopLoader
+          color="#2563EB"
+          height={3}
+          showSpinner={false}
+          easing="ease-in-out"
+          speed={400}
+          shadow="0 0 10px #2563EB,0 0 5px #2563EB"
+        />
+
+        <Navbar />
+
+        <main className="flex-grow w-full">{children}</main>
+
+        <Footer />
+
+        <Toaster position="top-center" reverseOrder={false} />
+      </body>
+    </html>
   );
 }

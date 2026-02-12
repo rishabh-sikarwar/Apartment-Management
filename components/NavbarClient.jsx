@@ -1,145 +1,105 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { UserButton, useUser } from "@clerk/nextjs";
-import { Home, Info, Phone, HelpCircle, Menu, X } from "lucide-react";
+import {
+  Home,
+  Info,
+  Phone,
+  HelpCircle,
+  Menu,
+  X,
+  LayoutDashboard,
+  LogOut,
+  User as UserIcon,
+  Settings,
+  ShieldCheck,
+  ChevronDown,
+} from "lucide-react";
+import { toast } from "sonner";
 
 const navItems = [
   { name: "Home", path: "/", icon: <Home className="w-5 h-5" /> },
   { name: "About", path: "/about", icon: <Info className="w-5 h-5" /> },
-  { name: "Contact", path: "/contact", icon: <Phone className="w-5 h-5" /> },
-  { name: "FAQ's", path: "/faq", icon: <HelpCircle className="w-5 h-5" /> },
-  {
-    name: "Documents",
-    path: "/document-repository",
-    icon: <HelpCircle className="w-5 h-5" />,
-  },
+  { name: "Contact", path: "/contact-us", icon: <Phone className="w-5 h-5" /> },
+  { name: "FAQ", path: "/faq", icon: <HelpCircle className="w-5 h-5" /> },
 ];
 
-export default function NavbarClient() {
+export default function NavbarClient({ user: initialUser }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const { isSignedIn } = useUser();
-  const [dbUser, setDbUser] = useState(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
+  // Initialize state
+  const [user, setUser] = useState(initialUser);
+  const profileRef = useRef(null);
+
+  // 1. Sync with Server Prop
   useEffect(() => {
-    if (isSignedIn) {
-      fetch("/api/users")
-        .then((res) => res.json())
-        .then((data) => {
-          setDbUser(data.data); // Ensure data.data
-        })
-        .catch((err) => console.error("Failed to fetch user:", err));
+    setUser(initialUser);
+  }, [initialUser]);
+
+  // 2. "Self-Healing" Check
+  useEffect(() => {
+    const verifySession = async () => {
+      try {
+        const res = await fetch("/api/users/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data && !user) {
+            setUser(data);
+            router.refresh();
+          }
+        }
+      } catch (err) {
+        // Ignore
+      }
+    };
+    if (!user) {
+      verifySession();
     }
-  }, [isSignedIn]);
+  }, [pathname]);
 
-  const renderDashboardLink = () => {
-    if (!dbUser?.role) return null;
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setIsProfileOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileRef]);
 
-    const baseBtn =
-      "px-4 py-2 rounded-full text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition";
-
-    return (
-      <div className="flex gap-2">
-        {dbUser?.role === "SUPER_ADMIN" ? (
-          <>
-            <Link href="/dashboard" className={baseBtn}>
-              Dashboard
-            </Link>
-            <Link href="/dashboard/admin" className={baseBtn}>
-              Super Admin
-            </Link>
-          </>
-        ) : dbUser?.role === "SOCIETY_ADMIN" ? (
-          <div className="flex gap-2">
-            <Link href="/dashboard" className={baseBtn}>
-              Dashboard
-            </Link>
-            <div className="relative group">
-              <button className={`${baseBtn} flex items-center gap-1`}>
-                Society Admin
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <div className="py-1">
-                  <Link
-                    href="/dashboard/society-admin"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Society Admin Panel
-                  </Link>
-                  <Link
-                    href="/watchman-logs"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Activity Logs
-                  </Link>
-                  <Link
-                    href="/staff-management"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Staff Management
-                  </Link>
-                  <Link
-                    href="/allVisitor"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Visitor Management
-                  </Link>
-                  <Link
-                    href="/Accounting"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Accounting Management
-                  </Link>
-                  <Link
-                    href="/dashboard/society-admin/approve-payments"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Approve Payments
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <Link href="/dashboard" className={baseBtn}>
-            Dashboard
-          </Link>
-        )}
-      </div>
-    );
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setUser(null);
+      toast.success("Logged out successfully");
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      toast.error("Logout failed");
+    }
   };
 
   return (
     <>
-      {/* Desktop Navigation */}
-      <div className="hidden sm:flex gap-4 items-center">
+      {/* --- DESKTOP NAV --- */}
+      <div className="hidden md:flex gap-2 items-center">
         {navItems.map((item) => (
           <Link
             key={item.name}
             href={item.path}
             className={clsx(
-              "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300",
+              "flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-semibold transition-all duration-300",
               pathname === item.path
-                ? "bg-blue-700 text-white shadow-lg"
-                : "text-blue-900 hover:bg-blue-200"
+                ? "bg-blue-600 text-white shadow-md"
+                : "text-slate-600 hover:text-blue-600 hover:bg-blue-50",
             )}
           >
             {item.name}
@@ -147,101 +107,208 @@ export default function NavbarClient() {
         ))}
       </div>
 
-      {/* Desktop User Section */}
-      <div className="hidden sm:flex items-center gap-4">
-        {isSignedIn && renderDashboardLink()}
-        {isSignedIn ? (
-          <UserButton afterSignOutUrl="/" />
+      {/* --- AUTH BUTTONS (Desktop) --- */}
+      <div className="hidden md:flex items-center gap-4 ml-6 pl-6 border-l border-slate-200">
+        {user ? (
+          /* LOGGED IN STATE */
+          <div className="flex items-center gap-4">
+            <Link
+              href="/dashboard"
+              className={clsx(
+                "px-6 py-2.5 rounded-full text-base font-bold transition shadow-sm hover:shadow-md flex items-center gap-2 text-white",
+                user.role === "SUPER_ADMIN"
+                  ? "bg-purple-600 hover:bg-purple-700"
+                  : "bg-slate-900 hover:bg-black",
+              )}
+            >
+              <LayoutDashboard className="w-5 h-5" />
+              {user.role === "SUPER_ADMIN" ? "Admin" : "Dashboard"}
+            </Link>
+
+            {/* Profile Dropdown */}
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200"
+              >
+                <div className="h-10 w-10 rounded-full border border-slate-200 shadow-sm overflow-hidden bg-white">
+                  {user.profilePicture ? (
+                    <img
+                      src={user.profilePicture}
+                      alt="Profile"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg">
+                      {user.firstName?.[0]?.toUpperCase() || "U"}
+                    </div>
+                  )}
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-500 transition-transform ${isProfileOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              <AnimatePresence>
+                {isProfileOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    className="absolute right-0 mt-3 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 origin-top-right"
+                  >
+                    <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+                      <p className="text-base font-bold text-slate-900 truncate">
+                        {user.name || user.firstName}
+                      </p>
+                      <p className="text-sm text-slate-500 truncate mb-2">
+                        {user.email || user.phoneNumber}
+                      </p>
+                      <div className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                        {user.role === "SUPER_ADMIN" && (
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                        )}
+                        {user.role.replace("_", " ")}
+                      </div>
+                    </div>
+
+                    <div className="py-2">
+                      <Link
+                        href="/profile"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center px-5 py-3 text-base font-medium text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      >
+                        <UserIcon className="w-5 h-5 mr-3" /> My Profile
+                      </Link>
+                      <Link
+                        href="/settings"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center px-5 py-3 text-base font-medium text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      >
+                        <Settings className="w-5 h-5 mr-3" /> Settings
+                      </Link>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-2 pb-1">
+                      <button
+                        onClick={handleLogout}
+                        className="flex w-full items-center px-5 py-3 text-base font-medium text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut className="w-5 h-5 mr-3" /> Sign Out
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
         ) : (
-          <Link
-            href="/sign-up"
-            className="ml-2 px-4 py-2 rounded-full text-sm font-semibold bg-blue-600 text-white hover:bg-red-600 transition-all duration-300"
-          >
-            Login
-          </Link>
+          /* LOGGED OUT STATE */
+          <div className="flex items-center gap-3">
+            <Link
+              href="/sign-in"
+              className="px-6 py-2.5 rounded-full text-base font-bold text-slate-700 border-2 border-slate-200 hover:border-blue-600 hover:text-blue-600 hover:bg-blue-50 transition-all"
+            >
+              Login
+            </Link>
+            <Link
+              href="/sign-up"
+              className="px-6 py-2.5 rounded-full text-base font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
+            >
+              Sign Up
+            </Link>
+          </div>
         )}
       </div>
 
-      {/* Mobile Menu Toggle */}
-      <div className="sm:hidden flex items-center gap-4">
+      {/* --- MOBILE TOGGLE --- */}
+      <div className="md:hidden flex items-center gap-4">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="text-blue-900 hover:text-blue-700 transition"
+          className="text-slate-800 hover:text-blue-600 transition p-1"
         >
-          {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          {isOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
         </button>
       </div>
 
-      {/* Mobile Dropdown Menu */}
+      {/* --- MOBILE MENU --- */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="sm:hidden bg-blue-50/80 backdrop-blur-md px-6 pb-4 rounded-b-xl shadow-lg"
+            className="md:hidden absolute top-full left-0 right-0 bg-white/98 backdrop-blur-xl px-6 pb-8 shadow-2xl border-t border-slate-100 z-40 h-screen"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
           >
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.path}
-                onClick={() => setIsOpen(false)}
-                className={clsx(
-                  "flex items-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition-all duration-300",
-                  pathname === item.path
-                    ? "bg-blue-700 text-white"
-                    : "text-blue-900 hover:bg-blue-200"
-                )}
-              >
-                {item.icon} {item.name}
-              </Link>
-            ))}
+            <div className="space-y-3 mt-6">
+              {navItems.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.path}
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-4 p-4 rounded-xl text-lg font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                >
+                  {item.icon} {item.name}
+                </Link>
+              ))}
+            </div>
 
-            {isSignedIn && (
-              <div className="mt-4">
-                {renderDashboardLink()}
-                {dbUser?.role === "SOCIETY_ADMIN" && (
-                  <div className="mt-2 space-y-2">
-                    <Link
-                      href="/watchman-logs"
-                      onClick={() => setIsOpen(false)}
-                      className="block px-4 py-2 text-sm text-blue-900 hover:bg-blue-200 rounded-md"
-                    >
-                      Activity Logs
-                    </Link>
-                    <Link
-                      href="/Facilities"
-                      onClick={() => setIsOpen(false)}
-                      className="block px-4 py-2 text-sm text-blue-900 hover:bg-blue-200 rounded-md"
-                    >
-                      Facility Booking
-                    </Link>
-                    <Link
-                      href="/dashboard/visitor"
-                      onClick={() => setIsOpen(false)}
-                      className="block px-4 py-2 text-sm text-blue-900 hover:bg-blue-200 rounded-md"
-                    >
-                      Visitor Management
-                    </Link>
+            <div className="mt-8 border-t border-slate-200 pt-6">
+              {user ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 mb-6 bg-slate-50 p-4 rounded-2xl">
+                    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xl">
+                      {user.firstName?.[0]?.toUpperCase() || "U"}
+                    </div>
+                    <div>
+                      <p className="font-bold text-lg text-slate-900">
+                        {user.name}
+                      </p>
+                      <p className="text-sm text-slate-500 font-medium">
+                        {user.email || user.phoneNumber}
+                      </p>
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
-
-            {isSignedIn ? (
-              <div className="mt-2 flex justify-center">
-                <UserButton afterSignOutUrl="/" />
-              </div>
-            ) : (
-              <Link
-                href="/sign-up"
-                onClick={() => setIsOpen(false)}
-                className="mt-2 block text-center w-full px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-red-600 transition"
-              >
-                Login
-              </Link>
-            )}
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setIsOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-xl text-lg font-bold shadow-lg active:scale-95 transition-transform"
+                  >
+                    <LayoutDashboard className="w-5 h-5" /> Dashboard
+                  </Link>
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-slate-100 text-slate-700 rounded-xl text-lg font-bold hover:bg-slate-200"
+                  >
+                    <UserIcon className="w-5 h-5" /> My Profile
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-red-50 text-red-600 rounded-xl text-lg font-bold hover:bg-red-100"
+                  >
+                    <LogOut className="w-5 h-5" /> Sign Out
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  <Link
+                    href="/sign-in"
+                    onClick={() => setIsOpen(false)}
+                    className="flex justify-center px-6 py-4 rounded-xl border-2 border-slate-200 text-slate-700 text-lg font-bold hover:bg-slate-50"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/sign-up"
+                    onClick={() => setIsOpen(false)}
+                    className="flex justify-center px-6 py-4 rounded-xl bg-blue-600 text-white text-lg font-bold shadow-lg hover:bg-blue-700"
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

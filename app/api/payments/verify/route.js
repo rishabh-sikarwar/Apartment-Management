@@ -1,12 +1,12 @@
 import { db } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { auth } from "@clerk/nextjs/server";
+import { checkUser } from "@/lib/checkUser";
 
 export async function POST(req) {
   try {
-    const { userId } = await auth();
-    if (!userId) return new NextResponse("Unauthorised", { status: 401 });
+    const user = await checkUser();
+    if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
     const payload = await req.json();
 
@@ -18,7 +18,6 @@ export async function POST(req) {
     } = payload;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      console.warn("[VALIDATION] Missing Razorpay fields");
       return new NextResponse("Incomplete callback payload", { status: 400 });
     }
 
@@ -29,9 +28,7 @@ export async function POST(req) {
       .update(body)
       .digest("hex");
 
-
     if (expected !== razorpay_signature) {
-      console.error("[VERIFY] Signature mismatch");
       return new NextResponse("Signature mismatch", { status: 400 });
     }
 
@@ -45,7 +42,6 @@ export async function POST(req) {
       },
     });
 
-
     /* ----- create PendingAdmin row (linked) ----- */
     const pending = await db.pendingAdmin.upsert({
       where: { email: formData.email },
@@ -54,13 +50,14 @@ export async function POST(req) {
         address: formData.address,
         registrationNumber: formData.registrationNumber,
         phoneNumber: formData.phoneNumber,
-        totalFlats: parseInt(formData.totalFlats, 10), // 👈 cast to Int
+        totalFlats: parseInt(formData.totalFlats, 10),
         name: formData.name,
         email: formData.email,
         status: "PENDING",
         paymentLog: {
           connect: { id: log.id },
         },
+        appliedByUserId: user.id, // Link to current user
       },
       update: {
         paymentLog: {
@@ -69,7 +66,6 @@ export async function POST(req) {
         updatedAt: new Date(),
       },
     });
-
 
     return NextResponse.json({ ok: true, pendingId: pending.id });
   } catch (error) {

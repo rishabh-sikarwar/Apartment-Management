@@ -1,7 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
+import { checkUser } from "@/lib/checkUser";
 import { db } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+// GET is public (needs societyId)
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const societyId = searchParams.get("societyId");
@@ -19,49 +20,50 @@ export async function GET(req) {
   return NextResponse.json(notices);
 }
 
-
+// POST (Admins Only)
 export async function POST(req) {
   try {
-    const { userId } = await auth();
+    const user = await checkUser();
 
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const allowed = ["SUPER_ADMIN", "SOCIETY_ADMIN", "SOCIETY_SECRETARY"];
+    if (!allowed.includes(user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { content, societyId } = await req.json();
 
     if (!content || !societyId) {
-      return NextResponse.json(
-        { error: "Missing content or societyId" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing data" }, { status: 400 });
     }
 
     const notice = await db.marqueeNotice.create({
-      data: {
-        content,
-        societyId,
-      },
+      data: { content, societyId },
     });
 
     return NextResponse.json(notice);
   } catch (error) {
-    console.error("Error creating notice:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }
 
-
+// DELETE (Admins Only)
 export async function DELETE(req) {
   try {
-    const { id } = await req.json();
+    const user = await checkUser();
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    if (!id) {
-      return NextResponse.json({ error: "Missing ID" }, { status: 400 });
+    const allowed = ["SUPER_ADMIN", "SOCIETY_ADMIN", "SOCIETY_SECRETARY"];
+    if (!allowed.includes(user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    const { id } = await req.json();
+    if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
 
     await db.marqueeNotice.delete({
       where: { id },
@@ -69,10 +71,6 @@ export async function DELETE(req) {
 
     return NextResponse.json({ message: "Notice deleted" }, { status: 200 });
   } catch (error) {
-    console.error("Delete failed:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }

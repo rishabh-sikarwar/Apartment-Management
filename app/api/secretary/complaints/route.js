@@ -1,23 +1,26 @@
-// /app/api/secretary/complaints/route.ts
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/prisma";
+import { checkUser } from "@/lib/checkUser";
 
 export async function GET() {
-  const { userId } = await auth();
-  const secretary = await db.user.findUnique({
-    where: { clerkUserId: userId },
-    include: { society: true },
-  });
+  const user = await checkUser();
 
-  if (!secretary || secretary.role !== "SOCIETY_ADMIN") {
+  // Allow both Admin and Secretary
+  if (
+    !user ||
+    (user.role !== "SOCIETY_ADMIN" && user.role !== "SOCIETY_SECRETARY")
+  ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  if (!user.societyId) {
+    return NextResponse.json({ error: "No society assigned" }, { status: 400 });
   }
 
   const complaints = await db.complaint.findMany({
     where: {
       user: {
-        societyId: secretary.societyId,
+        societyId: user.societyId,
       },
     },
     include: { user: true },

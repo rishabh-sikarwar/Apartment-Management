@@ -1,9 +1,10 @@
 "use client";
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import Section from '../section';
+import Section from "../section";
+import { Shield, UserPlus, Truck, QrCode } from "lucide-react";
 
-const DashboardWatchMan = () => {
+export default function DashboardWatchMan() {
   const [userRole, setUserRole] = useState("");
 
   useEffect(() => {
@@ -15,49 +16,81 @@ const DashboardWatchMan = () => {
           setUserRole(data.role);
         }
       } catch (error) {
-        console.error("Error fetching user role:", error);
+        console.error("Error fetching role:", error);
       }
     }
     fetchUserRole();
   }, []);
 
   return (
-    <>
-      
-        <Link href="/watchman">
-          <Section
-            title="watchman"
-            description="Manage entry logs and visitor records."
-          />
-      </Link>
-      
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+      {/* 1. GATE CONTROL */}
+      <section>
+        <div className="flex items-center gap-4 mb-8">
+          <div className="h-10 w-1.5 bg-rose-600 rounded-full shadow-md shadow-rose-200"></div>
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Gate Control
+            </h3>
+            <p className="text-gray-500 text-sm mt-1">Entry/Exit management.</p>
+          </div>
+        </div>
 
-        <Link href="/visitor">
-          <Section
-            title="Visitor Log"
-            description="Log and verify visitor entries."
-          />
-        </Link>
-      
-      
-      
-        <Link href="/vendor/register">
-          <Section
-            title="Register a Vendor"
-            description="Register a new vendor for society services."
-          />
-        </Link>
-      
-      
-        <Link href="/vendor/scan">
-          <Section
-            title="Scan Vendor QR Code"
-            description="Scan vendor QR codes to verify their identity."
-          />
-        </Link>
-      
-    </>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Link href="/watchman" className="h-full">
+            <Section
+              title="Security Console"
+              description="Main dashboard for logging entries and exits."
+              icon={<Shield />}
+              variant="rose"
+            />
+          </Link>
+
+          <Link href="/visitor" className="h-full">
+            <Section
+              title="Visitor Logs"
+              description="View history of all visitor entries."
+              icon={<UserPlus />}
+              variant="blue"
+            />
+          </Link>
+        </div>
+      </section>
+
+      {/* 2. VENDOR MANAGEMENT */}
+      <section>
+        <div className="flex items-center gap-4 mb-8">
+          <div className="h-10 w-1.5 bg-purple-600 rounded-full shadow-md shadow-purple-200"></div>
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Vendor Management
+            </h3>
+            <p className="text-gray-500 text-sm mt-1">
+              Service providers and deliveries.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Link href="/vendor/register" className="h-full">
+            <Section
+              title="Register Vendor"
+              description="Add a new daily help or service vendor."
+              icon={<Truck />}
+              variant="purple"
+            />
+          </Link>
+
+          <Link href="/vendor/scan" className="h-full">
+            <Section
+              title="Scan Vendor QR"
+              description="Quickly verify vendors using their QR code."
+              icon={<QrCode />}
+              variant="emerald"
+            />
+          </Link>
+        </div>
+      </section>
+    </div>
   );
 }
-
-export default DashboardWatchMan

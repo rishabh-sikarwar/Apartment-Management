@@ -1,31 +1,23 @@
-// app/api/payments/qr/route.js
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { checkUser } from "@/lib/checkUser";
 
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "401" }, { status: 401 });
+  const user = await checkUser();
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
-    select: { societyId: true },
-  });
-  if (!user?.societyId)
+  if (!user.societyId) {
     return NextResponse.json(
       { error: "Join a society first" },
-      { status: 400 }
+      { status: 400 },
     );
+  }
 
-  /* Option A */
-  const qrImageUrl = await db.society
-    .findUnique({ where: { id: user.societyId } })
-    .then((s) => s?.qrImageUrl);
+  const society = await db.society.findUnique({
+    where: { id: user.societyId },
+    select: { qrImageUrl: true },
+  });
 
-  /* Option B */
-  // const qrImageUrl = await db.societyQR
-  //   .findUnique({ where:{ societyId:user.societyId } })
-  //   .then(q => q?.imageUrl);
-
-  return NextResponse.json({ qrImageUrl });
+  return NextResponse.json({ qrImageUrl: society?.qrImageUrl });
 }

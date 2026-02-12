@@ -1,29 +1,28 @@
-// app/api/complaints/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { checkUser } from "@/lib/checkUser";
 
 export async function POST(req) {
-  const { userId } = await auth();
-  if (!userId)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { title, description } = await req.json();
-
   try {
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
+    const user = await checkUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { title, description } = await req.json();
+
+    // Re-fetch user with relations to ensure society context
+    const fullUser = await db.user.findUnique({
+      where: { id: user.id },
       include: { society: { include: { users: true } } },
     });
 
-    if (!user || !user.society) throw new Error("User or society not found");
-
-    // Find society secretary
-    const secretary = user.society.users.find(
-      (u) => u.role === "SOCIETY_ADMIN"
-    );
-
-    if (!secretary) throw new Error("No society secretary found");
+    if (!fullUser || !fullUser.society) {
+      return NextResponse.json(
+        { error: "User or Society not found" },
+        { status: 404 },
+      );
+    }
 
     const complaint = await db.complaint.create({
       data: {
@@ -33,14 +32,12 @@ export async function POST(req) {
       },
     });
 
-    // [Optional] Notify secretary (e.g., create a notification, email, etc.)
-
     return NextResponse.json({ complaint });
   } catch (error) {
-    console.error(error);
+    console.error("Complaint Error:", error);
     return NextResponse.json(
       { error: "Failed to file complaint" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

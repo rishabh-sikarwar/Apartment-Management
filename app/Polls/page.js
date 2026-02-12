@@ -1,3 +1,5 @@
+//import { parseDatabaseArray } from "@/utils/dbHelper";
+
 export default function PollsPage() {
   return (
     <div className="p-8 space-y-4 bg-white text-blue-900 min-h-screen">
@@ -6,7 +8,10 @@ export default function PollsPage() {
         Create secure polls and record votes for community decisions with
         automated results.
       </p>
-      <a href="/dashboard" className="text-blue-600 underline hover:text-blue-800">
+      <a
+        href="/dashboard"
+        className="text-blue-600 underline hover:text-blue-800"
+      >
         ← Back to Dashboard
       </a>
     </div>

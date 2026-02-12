@@ -1,29 +1,29 @@
-// app/api/users/me/route.js
-
 import { NextResponse } from "next/server";
+import { checkUser } from "@/lib/checkUser";
 import { db } from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server"; // We still need auth for the userId
 
-export async function GET() {
+export async function GET(req) {
   try {
-    const { userId } =await auth();
-    if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
+    const user = await checkUser();
+
+    if (!user) {
+      return new NextResponse("User not found", { status: 404 });
     }
 
-    const dbUser = await db.user.findUnique({
-      where: { clerkUserId: userId },
+    const fullUser = await db.user.findUnique({
+      where: { id: user.id },
       include: {
-        society: true,
-      },
-    });
-
-    if (!dbUser) {
-      return new NextResponse("User not found in database", { status: 404 });
-    }
-
-    return NextResponse.json(dbUser);
+        society: {
+          select: {
+            name: true,
+            id: true,
+          }
+        }
+      }
+    })
+    return NextResponse.json(fullUser);
   } catch (error) {
+    console.error("GET /users/me Error:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

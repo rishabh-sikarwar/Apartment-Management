@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 export default function FeedbackPage() {
   return (
     <div className="pt-20 p-4">
@@ -5,4 +7,3 @@ export default function FeedbackPage() {
     </div>
   );
 }
-
