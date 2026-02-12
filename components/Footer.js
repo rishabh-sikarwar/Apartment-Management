@@ -205,8 +205,16 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="border-t border-gray-800 mt-16 pt-8 text-center">
           <p className="text-gray-500 text-sm">
-            Built with ❤️ by{" "}
-            <span className="text-gray-300">EwaysServices Pvt. Ltd.</span>
+            Copyright © {new Date().getFullYear()}{" "}
+            <a
+              href="https://ewaysservices.com/aboutus.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-300 hover:text-white transition-colors"
+            >
+              Eways Services (p) Ltd.
+            </a>
+            {" "} All rights reserved.
           </p>
         </div>
       </div>
