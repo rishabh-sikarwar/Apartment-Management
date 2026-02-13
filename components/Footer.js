@@ -82,12 +82,7 @@ export default function Footer() {
               Secure, efficient, and community-focused solutions for modern
               living.
             </p>
-            <div className="pt-4">
-              <p className="text-gray-500 text-xs">
-                © {new Date().getFullYear()} E-Partment Inc. All rights
-                reserved.
-              </p>
-            </div>
+            
           </div>
 
           {/* Quick Links */}
